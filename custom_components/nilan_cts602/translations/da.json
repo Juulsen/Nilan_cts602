@@ -1,0 +1,642 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Denne gateway og Modbus-slave er allerede oprettet.",
+      "reconfigure_successful": "Forbindelsen til Nilan CTS602 er opdateret."
+    },
+    "error": {
+      "cannot_connect": "Kunne ikke forbinde til gatewayen eller den serielle port.",
+      "cannot_read": "Regulatoren svarede ikke på identifikationen. Tjek slave-adressen. ECL110 på samme gateway bruger en anden slave.",
+      "unsupported_model": "Slaven svarede med modeltype {model_type}. Integrationen understøtter kun Nilan Comfort (type 13).",
+      "modbus_error": "Regulatoren returnerede en Modbus-fejl.",
+      "unknown": "Uventet fejl. Se loggen i Home Assistant.",
+      "host_required": "Vært skal udfyldes ved Modbus TCP og RTU over TCP.",
+      "serial_required": "Seriel port skal udfyldes ved direkte RS485."
+    },
+    "step": {
+      "user": {
+        "title": "Forbind til Nilan Comfort",
+        "description": "Kun læsning. Integrationen læser modeltype, protokol og software og afviser alt andet end Comfort (type 13). Der skrives ikke til regulatoren. Bussen deles med andre enheder, så standarden er 30 sekunder mellem opdateringer og en kort pause mellem telegrammer. Bruger du samme gateway som ECL110, så vælg Modbus TCP. Slå den gamle nilan-integration og eventuelle YAML-modbus-sensorer for samme slave fra først.",
+        "data": {
+          "connection": "Forbindelse",
+          "host": "Vært eller IP-adresse",
+          "port": "TCP-port",
+          "serial_port": "Seriel port",
+          "device_id": "Modbus-slave",
+          "scan_interval": "Opdateringsinterval",
+          "timeout": "Timeout",
+          "request_delay": "Pause mellem telegrammer"
+        },
+        "data_description": {
+          "connection": "Modbus TCP er samme gatewaytype som ECL110. RTU over TCP er en transparent RS485-gateway. Seriel er fast 19200 8E1.",
+          "host": "IP-adressen på RS485-gatewayen. Tom ved direkte seriel forbindelse.",
+          "port": "Modbus TCP-port, normalt 502.",
+          "serial_port": "For eksempel /dev/ttyUSB0. Bruges kun ved direkte RS485.",
+          "device_id": "CTS602-adressen på RS485-bussen. Dette anlæg bruger 10. ECL110 på samme gateway har en anden adresse.",
+          "scan_interval": "Sekunder mellem opdateringer. Mindst 10. 30 er et fornuftigt valg på en delt bus.",
+          "timeout": "Sekunder der ventes på forbindelse eller svar.",
+          "request_delay": "Sekunder efter hvert telegram, så gatewayen ikke bliver hamret. Mindst 0,05."
+        }
+      },
+      "reconfigure": {
+        "title": "Skift forbindelse",
+        "description": "Forbindelsen testes igen, og modeltype 13 skal stadig svare. Anlægsvalget ændres under Konfigurer, ikke her.",
+        "data": {
+          "connection": "Forbindelse",
+          "host": "Vært eller IP-adresse",
+          "port": "TCP-port",
+          "serial_port": "Seriel port",
+          "device_id": "Modbus-slave",
+          "scan_interval": "Opdateringsinterval",
+          "timeout": "Timeout",
+          "request_delay": "Pause mellem telegrammer"
+        },
+        "data_description": {
+          "connection": "Modbus TCP er samme gatewaytype som ECL110. RTU over TCP er en transparent RS485-gateway. Seriel er fast 19200 8E1.",
+          "host": "IP-adressen på RS485-gatewayen. Tom ved direkte seriel forbindelse.",
+          "port": "Modbus TCP-port, normalt 502.",
+          "serial_port": "For eksempel /dev/ttyUSB0. Bruges kun ved direkte RS485.",
+          "device_id": "CTS602-adressen på RS485-bussen. Dette anlæg bruger 10. ECL110 på samme gateway har en anden adresse.",
+          "scan_interval": "Sekunder mellem opdateringer. Mindst 10. 30 er et fornuftigt valg på en delt bus.",
+          "timeout": "Sekunder der ventes på forbindelse eller svar.",
+          "request_delay": "Sekunder efter hvert telegram, så gatewayen ikke bliver hamret. Mindst 0,05."
+        }
+      },
+      "equipment": {
+        "title": "Anlæg",
+        "description": "Regulatoren svarede som {model}, software {software}, protokol {protocol}. Forvarme, eftervarme, CO₂ og T10 styrer hvilke entiteter der oprettes. Det der ikke er monteret, bliver ikke oprettet.",
+        "data": {
+          "preheater": "Forvarme monteret",
+          "reheater": "Eftervarme",
+          "co2": "CO₂-føler monteret",
+          "t10": "T10 monteret"
+        },
+        "data_description": {
+          "preheater": "Slået fra som standard. En forvarme-entitet oprettes kun, hvis den er monteret.",
+          "reheater": "Ingen, el eller vand. Ingen er standard. Vand bruger varmefladen (T9).",
+          "co2": "CO₂-entiteten oprettes kun, når føleren er monteret.",
+          "t10": "T10 sidder på styrekortet i aggregatet. Den er ikke stuetemperaturen."
+        }
+      },
+      "room": {
+        "title": "Rumtemperatur",
+        "description": "CTS602 kan ikke modtage en ekstern temperaturføler over Modbus. T15 er betjeningspanelet, og T10 sidder på styrekortet. På dette anlæg hænger panelet på loftet ved aggregatet, så T15 ikke er rumtemperatur. Valget bruges kun til visning og senere logik i Home Assistant.",
+        "data": {
+          "room_source": "Kilde til rumtemperatur",
+          "room_entity": "Temperaturentitet i Home Assistant"
+        },
+        "data_description": {
+          "room_source": "Vælg T15, T10 eller en eksisterende temperaturentitet. Entiteten skrives ikke til regulatoren.",
+          "room_entity": "Bruges kun når kilden er en Home Assistant-entitet."
+        }
+      }
+    }
+  },
+  "selector": {
+    "connection": {
+      "options": {
+        "modbus_tcp": "Modbus TCP (samme gatewaytype som ECL110)",
+        "rtu_over_tcp": "RTU over TCP (transparent gateway)",
+        "serial": "Seriel RS485, 19200 8E1"
+      }
+    },
+    "reheater": {
+      "options": {
+        "none": "Ingen",
+        "electric": "El",
+        "water": "Vand"
+      }
+    },
+    "room_source": {
+      "options": {
+        "t15": "T15 betjeningspanel (ikke nødvendigvis rummet)",
+        "t10": "T10 på styrekortet (i aggregatet)",
+        "entity": "Temperaturentitet i Home Assistant"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "t0_controller": {
+        "name": "Styrekort (T0)"
+      },
+      "t2_inlet": {
+        "name": "Før eftervarme (T2)"
+      },
+      "t3_extract": {
+        "name": "Udsugning (T3)"
+      },
+      "t4_exhaust": {
+        "name": "Afkast (T4)"
+      },
+      "t7_supply": {
+        "name": "Indblæsning (T7)"
+      },
+      "t8_outdoor": {
+        "name": "Udeluft (T8)"
+      },
+      "t9_heater": {
+        "name": "Varmeflade (T9)"
+      },
+      "t10_external": {
+        "name": "Ekstern føler (T10)"
+      },
+      "t15_panel": {
+        "name": "Panel (T15)"
+      },
+      "humidity": {
+        "name": "Fugtighed"
+      },
+      "co2": {
+        "name": "CO₂"
+      },
+      "control_state": {
+        "name": "Driftstilstand",
+        "state": {
+          "off": "Fra",
+          "shift": "Skift",
+          "stop": "Stop",
+          "start": "Start",
+          "standby": "Standby",
+          "ventilation_stop": "Ventilation stoppet",
+          "ventilation": "Ventilation",
+          "heating": "Varme",
+          "cooling": "Køling",
+          "hot_water": "Varmt vand",
+          "legionella": "Legionella",
+          "cooling_hot_water": "Køling og varmt vand",
+          "central_heating": "Centralvarme",
+          "defrost": "Afrimning",
+          "frost_secure": "Frostsikring",
+          "service": "Service",
+          "alarm": "Alarm",
+          "unknown": "Ukendt"
+        }
+      },
+      "operation_mode": {
+        "name": "Driftform",
+        "state": {
+          "off": "Fra",
+          "heat": "Varme",
+          "cool": "Køl",
+          "auto": "Auto",
+          "service": "Service",
+          "unknown": "Ukendt"
+        }
+      },
+      "supply_setpoint": {
+        "name": "Indblæsningssetpunkt"
+      },
+      "supply_fan_speed": {
+        "name": "Indblæsning ventilator"
+      },
+      "extract_fan_speed": {
+        "name": "Udsugning ventilator"
+      },
+      "fan_step": {
+        "name": "Aktuelt ventilatortrin"
+      },
+      "supply_fan_step": {
+        "name": "Indblæsningstrin"
+      },
+      "extract_fan_step": {
+        "name": "Udsugningstrin"
+      },
+      "filter_days_since": {
+        "name": "Dage siden filterskift"
+      },
+      "filter_days_left": {
+        "name": "Dage til filterskift"
+      },
+      "alarm_count": {
+        "name": "Antal alarmer"
+      },
+      "alarm_1": {
+        "name": "Alarm 1",
+        "state": {
+          "none": "Ingen alarm",
+          "hardware": "Hardware",
+          "timeout": "Timeout",
+          "fire": "Brandtermostat",
+          "pressure": "Pressostat",
+          "door": "Låge åben",
+          "defrost_timeout": "Afrimningstid",
+          "frost": "Frost",
+          "frost_thermostat": "Frosttermostat",
+          "overtemp": "Overtemperatur",
+          "overheat": "Eftervarme overhedet",
+          "airflow": "Luftmængde",
+          "thermo": "Motorværn",
+          "boiling": "Kogning",
+          "sensor": "Styreføler",
+          "room_low": "Rum for koldt",
+          "software": "Opstart",
+          "watchdog": "Watchdog",
+          "config": "Konfiguration",
+          "filter": "Filter",
+          "legionella": "Legionella",
+          "power": "Strømafbrydelse",
+          "air_temperature": "Lufttemperatur",
+          "water_temperature": "Vandtemperatur",
+          "heat_temperature": "Varme temperatur",
+          "modem": "Modem",
+          "network": "Netværk",
+          "t1_short": "T1 kortsluttet",
+          "t1_open": "T1 afbrudt",
+          "t2_short": "T2 kortsluttet",
+          "t2_open": "T2 afbrudt",
+          "t3_short": "T3 kortsluttet",
+          "t3_open": "T3 afbrudt",
+          "t4_short": "T4 kortsluttet",
+          "t4_open": "T4 afbrudt",
+          "t5_short": "T5 kortsluttet",
+          "t5_open": "T5 afbrudt",
+          "t6_short": "T6 kortsluttet",
+          "t6_open": "T6 afbrudt",
+          "t7_short": "T7 kortsluttet",
+          "t7_open": "T7 afbrudt",
+          "t8_short": "T8 kortsluttet",
+          "t8_open": "T8 afbrudt",
+          "t9_short": "T9 kortsluttet",
+          "t9_open": "T9 afbrudt",
+          "t10_short": "T10 kortsluttet",
+          "t10_open": "T10 afbrudt",
+          "t11_short": "T11 kortsluttet",
+          "t11_open": "T11 afbrudt",
+          "t12_short": "T12 kortsluttet",
+          "t12_open": "T12 afbrudt",
+          "t13_short": "T13 kortsluttet",
+          "t13_open": "T13 afbrudt",
+          "t14_short": "T14 kortsluttet",
+          "t14_open": "T14 afbrudt",
+          "t15_short": "T15 kortsluttet",
+          "t15_open": "T15 afbrudt",
+          "t16_short": "T16 kortsluttet",
+          "t16_open": "T16 afbrudt",
+          "anode": "Anode",
+          "exchanger_defrost": "Veksler afrimning",
+          "slave_io": "Slave I/O",
+          "option_module": "Optionsmodul",
+          "preset": "Forindstilling",
+          "software_rejected": "Software afvist",
+          "unknown": "Ukendt alarm"
+        }
+      },
+      "alarm_2": {
+        "name": "Alarm 2",
+        "state": {
+          "none": "Ingen alarm",
+          "hardware": "Hardware",
+          "timeout": "Timeout",
+          "fire": "Brandtermostat",
+          "pressure": "Pressostat",
+          "door": "Låge åben",
+          "defrost_timeout": "Afrimningstid",
+          "frost": "Frost",
+          "frost_thermostat": "Frosttermostat",
+          "overtemp": "Overtemperatur",
+          "overheat": "Eftervarme overhedet",
+          "airflow": "Luftmængde",
+          "thermo": "Motorværn",
+          "boiling": "Kogning",
+          "sensor": "Styreføler",
+          "room_low": "Rum for koldt",
+          "software": "Opstart",
+          "watchdog": "Watchdog",
+          "config": "Konfiguration",
+          "filter": "Filter",
+          "legionella": "Legionella",
+          "power": "Strømafbrydelse",
+          "air_temperature": "Lufttemperatur",
+          "water_temperature": "Vandtemperatur",
+          "heat_temperature": "Varme temperatur",
+          "modem": "Modem",
+          "network": "Netværk",
+          "t1_short": "T1 kortsluttet",
+          "t1_open": "T1 afbrudt",
+          "t2_short": "T2 kortsluttet",
+          "t2_open": "T2 afbrudt",
+          "t3_short": "T3 kortsluttet",
+          "t3_open": "T3 afbrudt",
+          "t4_short": "T4 kortsluttet",
+          "t4_open": "T4 afbrudt",
+          "t5_short": "T5 kortsluttet",
+          "t5_open": "T5 afbrudt",
+          "t6_short": "T6 kortsluttet",
+          "t6_open": "T6 afbrudt",
+          "t7_short": "T7 kortsluttet",
+          "t7_open": "T7 afbrudt",
+          "t8_short": "T8 kortsluttet",
+          "t8_open": "T8 afbrudt",
+          "t9_short": "T9 kortsluttet",
+          "t9_open": "T9 afbrudt",
+          "t10_short": "T10 kortsluttet",
+          "t10_open": "T10 afbrudt",
+          "t11_short": "T11 kortsluttet",
+          "t11_open": "T11 afbrudt",
+          "t12_short": "T12 kortsluttet",
+          "t12_open": "T12 afbrudt",
+          "t13_short": "T13 kortsluttet",
+          "t13_open": "T13 afbrudt",
+          "t14_short": "T14 kortsluttet",
+          "t14_open": "T14 afbrudt",
+          "t15_short": "T15 kortsluttet",
+          "t15_open": "T15 afbrudt",
+          "t16_short": "T16 kortsluttet",
+          "t16_open": "T16 afbrudt",
+          "anode": "Anode",
+          "exchanger_defrost": "Veksler afrimning",
+          "slave_io": "Slave I/O",
+          "option_module": "Optionsmodul",
+          "preset": "Forindstilling",
+          "software_rejected": "Software afvist",
+          "unknown": "Ukendt alarm"
+        }
+      },
+      "alarm_3": {
+        "name": "Alarm 3",
+        "state": {
+          "none": "Ingen alarm",
+          "hardware": "Hardware",
+          "timeout": "Timeout",
+          "fire": "Brandtermostat",
+          "pressure": "Pressostat",
+          "door": "Låge åben",
+          "defrost_timeout": "Afrimningstid",
+          "frost": "Frost",
+          "frost_thermostat": "Frosttermostat",
+          "overtemp": "Overtemperatur",
+          "overheat": "Eftervarme overhedet",
+          "airflow": "Luftmængde",
+          "thermo": "Motorværn",
+          "boiling": "Kogning",
+          "sensor": "Styreføler",
+          "room_low": "Rum for koldt",
+          "software": "Opstart",
+          "watchdog": "Watchdog",
+          "config": "Konfiguration",
+          "filter": "Filter",
+          "legionella": "Legionella",
+          "power": "Strømafbrydelse",
+          "air_temperature": "Lufttemperatur",
+          "water_temperature": "Vandtemperatur",
+          "heat_temperature": "Varme temperatur",
+          "modem": "Modem",
+          "network": "Netværk",
+          "t1_short": "T1 kortsluttet",
+          "t1_open": "T1 afbrudt",
+          "t2_short": "T2 kortsluttet",
+          "t2_open": "T2 afbrudt",
+          "t3_short": "T3 kortsluttet",
+          "t3_open": "T3 afbrudt",
+          "t4_short": "T4 kortsluttet",
+          "t4_open": "T4 afbrudt",
+          "t5_short": "T5 kortsluttet",
+          "t5_open": "T5 afbrudt",
+          "t6_short": "T6 kortsluttet",
+          "t6_open": "T6 afbrudt",
+          "t7_short": "T7 kortsluttet",
+          "t7_open": "T7 afbrudt",
+          "t8_short": "T8 kortsluttet",
+          "t8_open": "T8 afbrudt",
+          "t9_short": "T9 kortsluttet",
+          "t9_open": "T9 afbrudt",
+          "t10_short": "T10 kortsluttet",
+          "t10_open": "T10 afbrudt",
+          "t11_short": "T11 kortsluttet",
+          "t11_open": "T11 afbrudt",
+          "t12_short": "T12 kortsluttet",
+          "t12_open": "T12 afbrudt",
+          "t13_short": "T13 kortsluttet",
+          "t13_open": "T13 afbrudt",
+          "t14_short": "T14 kortsluttet",
+          "t14_open": "T14 afbrudt",
+          "t15_short": "T15 kortsluttet",
+          "t15_open": "T15 afbrudt",
+          "t16_short": "T16 kortsluttet",
+          "t16_open": "T16 afbrudt",
+          "anode": "Anode",
+          "exchanger_defrost": "Veksler afrimning",
+          "slave_io": "Slave I/O",
+          "option_module": "Optionsmodul",
+          "preset": "Forindstilling",
+          "software_rejected": "Software afvist",
+          "unknown": "Ukendt alarm"
+        }
+      },
+      "controller_time": {
+        "name": "Ur i regulatoren"
+      },
+      "display_text": {
+        "name": "Display"
+      },
+      "efficiency": {
+        "name": "Varmegenvinding (afkastside)"
+      },
+      "efficiency_controller": {
+        "name": "Varmegenvinding (regulator)"
+      },
+      "room_temperature": {
+        "name": "Rumtemperatur"
+      },
+      "controlled_temperature": {
+        "name": "Styret temperatur"
+      },
+      "controller_room_temperature": {
+        "name": "Regulatorens rumtemperatur"
+      },
+      "protocol_version": {
+        "name": "Protokolversion"
+      },
+      "sw_version": {
+        "name": "Softwareversion"
+      },
+      "reheater_capacity": {
+        "name": "Eftervarme ydelse"
+      },
+      "set_run": {
+        "name": "Drift til/fra",
+        "state": {
+          "off": "Fra",
+          "on": "Til",
+          "unknown": "Ukendt"
+        }
+      },
+      "set_mode": {
+        "name": "Driftform (indstilling)",
+        "state": {
+          "off": "Fra",
+          "heat": "Varme",
+          "cool": "Køl",
+          "auto": "Auto",
+          "service": "Service",
+          "unknown": "Ukendt"
+        }
+      },
+      "set_fan_step": {
+        "name": "Ventilatortrin (indstilling)"
+      },
+      "set_temperature": {
+        "name": "Temperatursetpunkt"
+      },
+      "supply_min_summer": {
+        "name": "Min. indblæsning sommer"
+      },
+      "supply_min_winter": {
+        "name": "Min. indblæsning vinter"
+      },
+      "supply_max_summer": {
+        "name": "Maks. indblæsning sommer"
+      },
+      "supply_max_winter": {
+        "name": "Maks. indblæsning vinter"
+      },
+      "summer_limit": {
+        "name": "Sommer/vinter-grænse"
+      },
+      "night_cool_day_limit": {
+        "name": "Natkøling, daggrænse"
+      },
+      "night_cool_setpoint": {
+        "name": "Natkøling, rumsetpunkt"
+      },
+      "humidity_low_step": {
+        "name": "Fugt, lavt trin"
+      },
+      "humidity_high_step": {
+        "name": "Fugt, højt trin"
+      },
+      "humidity_limit": {
+        "name": "Fugtegrænse"
+      },
+      "humidity_high_time": {
+        "name": "Maks. tid høj fugt"
+      },
+      "week_program": {
+        "name": "Ugeprogram",
+        "state": {
+          "none": "Ingen",
+          "program_1": "Program 1",
+          "program_2": "Program 2",
+          "program_3": "Program 3",
+          "erase": "Slet",
+          "unknown": "Ukendt"
+        }
+      },
+      "cooling_setpoint": {
+        "name": "Kølesætpunkt",
+        "state": {
+          "off": "Fra",
+          "plus_0": "Sætpunkt +0",
+          "plus_1": "Sætpunkt +1",
+          "plus_2": "Sætpunkt +2",
+          "plus_3": "Sætpunkt +3",
+          "plus_4": "Sætpunkt +4",
+          "plus_5": "Sætpunkt +5",
+          "plus_7": "Sætpunkt +7",
+          "plus_10": "Sætpunkt +10",
+          "unknown": "Ukendt"
+        }
+      },
+      "cooling_fan_step": {
+        "name": "Køletrin"
+      },
+      "user_function_1_type": {
+        "name": "Brugerfunktion 1",
+        "state": {
+          "none": "Ingen",
+          "extend": "Forlæng",
+          "inlet": "Indblæsning",
+          "exhaust": "Udsugning",
+          "external_heater_offset": "Ekstern varme, offset",
+          "ventilate": "Udluftning",
+          "cooker_hood": "Emhætte",
+          "unknown": "Ukendt"
+        }
+      },
+      "user_function_2_type": {
+        "name": "Brugerfunktion 2",
+        "state": {
+          "none": "Ingen",
+          "extend": "Forlæng",
+          "inlet": "Indblæsning",
+          "exhaust": "Udsugning",
+          "external_heater_offset": "Ekstern varme, offset",
+          "ventilate": "Udluftning",
+          "cooker_hood": "Emhætte",
+          "unknown": "Ukendt"
+        }
+      },
+      "co2_high_step": {
+        "name": "CO₂ ventilatortrin"
+      },
+      "co2_limit_low": {
+        "name": "CO₂ normalgrænse"
+      },
+      "co2_limit_high": {
+        "name": "CO₂ høj grænse"
+      }
+    },
+    "binary_sensor": {
+      "running": {
+        "name": "Kører"
+      },
+      "summer": {
+        "name": "Sommer"
+      },
+      "alarm_active": {
+        "name": "Alarm aktiv"
+      },
+      "filter": {
+        "name": "Filteralarm"
+      },
+      "bypass": {
+        "name": "Bypass åben"
+      },
+      "defrost": {
+        "name": "Afrimning"
+      },
+      "user_function": {
+        "name": "Brugerfunktion aktiv"
+      },
+      "preheater": {
+        "name": "Forvarme aktiv"
+      },
+      "reheater": {
+        "name": "Eftervarme aktiv"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "equipment": {
+        "title": "Anlæg",
+        "description": "Regulatoren svarede som {model}, software {software}, protokol {protocol}. Forvarme, eftervarme, CO₂ og T10 styrer hvilke entiteter der oprettes. Det der ikke er monteret, bliver ikke oprettet.",
+        "data": {
+          "preheater": "Forvarme monteret",
+          "reheater": "Eftervarme",
+          "co2": "CO₂-føler monteret",
+          "t10": "T10 monteret"
+        },
+        "data_description": {
+          "preheater": "Slået fra som standard. En forvarme-entitet oprettes kun, hvis den er monteret.",
+          "reheater": "Ingen, el eller vand. Ingen er standard. Vand bruger varmefladen (T9).",
+          "co2": "CO₂-entiteten oprettes kun, når føleren er monteret.",
+          "t10": "T10 sidder på styrekortet i aggregatet. Den er ikke stuetemperaturen."
+        }
+      },
+      "room": {
+        "title": "Rumtemperatur",
+        "description": "CTS602 kan ikke modtage en ekstern temperaturføler over Modbus. T15 er betjeningspanelet, og T10 sidder på styrekortet. På dette anlæg hænger panelet på loftet ved aggregatet, så T15 ikke er rumtemperatur. Valget bruges kun til visning og senere logik i Home Assistant.",
+        "data": {
+          "room_source": "Kilde til rumtemperatur",
+          "room_entity": "Temperaturentitet i Home Assistant"
+        },
+        "data_description": {
+          "room_source": "Vælg T15, T10 eller en eksisterende temperaturentitet. Entiteten skrives ikke til regulatoren.",
+          "room_entity": "Bruges kun når kilden er en Home Assistant-entitet."
+        }
+      }
+    }
+  }
+}

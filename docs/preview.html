@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nilan CTS602</title>
+  <style>
+    html, body { margin: 0; }
+    body { padding: 12px; }
+    #stage { width: min(100%, var(--card-width, 390px)); margin: 0 auto; }
+    html[data-theme="dark"] { background: #0e1116; color-scheme: dark; }
+    html[data-theme="light"] {
+      background: #e7ebf0;
+      color-scheme: light;
+      --ha-card-background: #ffffff;
+      --card-background-color: #ffffff;
+      --primary-text-color: #1b2430;
+      --secondary-text-color: #5c6b7a;
+      --divider-color: #d5dde6;
+      --secondary-background-color: #eef2f6;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <script src="../custom_components/nilan_cts602/frontend/nilan-plant.js"></script>
+  <script src="../custom_components/nilan_cts602/frontend/nilan-diagram.js"></script>
+  <script src="../custom_components/nilan_cts602/frontend/nilan-chart.js"></script>
+  <script src="../custom_components/nilan_cts602/frontend/nilan-wizard.js"></script>
+  <script src="../custom_components/nilan_cts602/frontend/nilan-card.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const theme = params.get('theme') === 'light' ? 'light' : 'dark';
+    const layout = params.get('layout') === 'desktop' ? 'desktop' : 'mobile';
+    const tab = params.get('tab') || 'overview';
+    const view = params.get('view') === 'fields' ? 'fields' : 'graphic';
+    const wizard = params.get('wizard') === '1';
+    const tooltip = params.get('tooltip') === '1';
+    const alarmDemo = params.get('alarm') === '1';
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.setProperty('--card-width', layout === 'desktop' ? '960px' : '390px');
+
+    const LABELS = {
+      ventilation: 'Ventilation', auto: 'Auto', heat: 'Varme', cool: 'Køl', on: 'Til', off: 'Fra',
+      none: 'Ingen', program_1: 'Program 1', unknown: 'Ukendt', extend: 'Forlæng', inlet: 'Indblæs',
+      plus_2: '+2 °C', filter: 'Filter',
+    };
+
+    function entity(key, state, extra) {
+      const id = `sensor.nilan_${key}`;
+      return [id, {
+        entity_id: id,
+        state: String(state),
+        attributes: Object.assign({
+          nilan_device: 'nilan-comfort',
+          register_key: key,
+          friendly_name: key,
+          sw_version: '2.35.a',
+          protocol_version: 9,
+        }, extra || {}),
+      }];
+    }
+
+    const states = Object.fromEntries([
+      entity('t0_controller', '28.4', { unit_of_measurement: '°C', device_class: 'temperature', friendly_name: 'Styrekort (T0)' }),
+      entity('t3_extract', '22.1', { unit_of_measurement: '°C', device_class: 'temperature', friendly_name: 'Udsugning (T3)' }),
+      entity('t4_exhaust', '14.8', { unit_of_measurement: '°C', device_class: 'temperature', friendly_name: 'Afkast (T4)' }),
+      entity('t7_supply', '19.4', { unit_of_measurement: '°C', device_class: 'temperature', friendly_name: 'Indblæsning (T7)' }),
+      entity('t8_outdoor', '12.3', { unit_of_measurement: '°C', device_class: 'temperature', friendly_name: 'Udeluft (T8)' }),
+      entity('t15_panel', '31.6', { unit_of_measurement: '°C', device_class: 'temperature', friendly_name: 'Panel (T15)' }),
+      entity('humidity', '42', { unit_of_measurement: '%', device_class: 'humidity', friendly_name: 'Fugtighed' }),
+      entity('control_state', 'ventilation', { device_class: 'enum', friendly_name: 'Driftstilstand' }),
+      entity('operation_mode', 'auto', { device_class: 'enum', friendly_name: 'Driftform' }),
+      entity('supply_setpoint', '21.0', { unit_of_measurement: '°C', device_class: 'temperature', friendly_name: 'Indblæsningssetpunkt' }),
+      entity('supply_fan_speed', '45', { unit_of_measurement: '%', friendly_name: 'Indblæsning ventilator' }),
+      entity('extract_fan_speed', '40', { unit_of_measurement: '%', friendly_name: 'Udsugning ventilator' }),
+      entity('fan_step', '2', { friendly_name: 'Aktuelt ventilatortrin' }),
+      entity('supply_fan_step', '2', { friendly_name: 'Indblæsningstrin' }),
+      entity('extract_fan_step', '2', { friendly_name: 'Udsugningstrin' }),
+      entity('filter_days_since', '48', { unit_of_measurement: 'd', friendly_name: 'Dage siden filterskift' }),
+      entity('filter_days_left', '42', { unit_of_measurement: 'd', friendly_name: 'Dage til filterskift' }),
+      entity('alarm_count', alarmDemo ? '1' : '0', { friendly_name: 'Antal alarmer' }),
+      entity('alarm_1', alarmDemo ? 'filter' : 'unknown', {
+        device_class: 'enum', friendly_name: 'Alarm 1',
+        name_da: alarmDemo ? 'Filter' : 'Ukendt', name_en: alarmDemo ? 'Filter' : 'Unknown',
+        description_da: alarmDemo ? 'Filterpressostat eller filtertimer.' : '',
+        code: alarmDemo ? 19 : 0,
+      }),
+      entity('alarm_2', 'unknown', { device_class: 'enum', friendly_name: 'Alarm 2', name_da: 'Ukendt' }),
+      entity('alarm_3', 'unknown', { device_class: 'enum', friendly_name: 'Alarm 3', name_da: 'Ukendt' }),
+      entity('efficiency', '74.5', { unit_of_measurement: '%', friendly_name: 'Varmegenvinding (afkastside)' }),
+      entity('efficiency_controller', '71.0', { unit_of_measurement: '%', friendly_name: 'Varmegenvinding (regulator)' }),
+      entity('room_temperature', '21.4', { unit_of_measurement: '°C', device_class: 'temperature', friendly_name: 'Rumtemperatur' }),
+      entity('running', 'on', { friendly_name: 'Kører' }),
+      entity('summer', 'off', { friendly_name: 'Sommer' }),
+      entity('alarm_active', alarmDemo ? 'on' : 'off', { friendly_name: 'Alarm aktiv' }),
+      entity('filter', alarmDemo ? 'on' : 'off', { friendly_name: 'Filteralarm' }),
+      entity('bypass', 'off', { friendly_name: 'Bypass åben', position: 'closed' }),
+      entity('defrost', 'off', { friendly_name: 'Afrimning' }),
+      entity('user_function', 'off', { friendly_name: 'Brugerfunktion aktiv' }),
+      entity('set_temperature', '21.0', { unit_of_measurement: '°C', device_class: 'temperature' }),
+      entity('set_fan_step', '2', {}),
+      entity('set_mode', 'auto', { device_class: 'enum' }),
+      entity('set_run', 'on', { device_class: 'enum' }),
+      entity('supply_min_summer', '14.0', { unit_of_measurement: '°C', device_class: 'temperature' }),
+      entity('supply_min_winter', '16.0', { unit_of_measurement: '°C', device_class: 'temperature' }),
+      entity('supply_max_summer', '22.0', { unit_of_measurement: '°C', device_class: 'temperature' }),
+      entity('supply_max_winter', '24.0', { unit_of_measurement: '°C', device_class: 'temperature' }),
+      entity('summer_limit', '12.0', { unit_of_measurement: '°C', device_class: 'temperature' }),
+      entity('night_cool_day_limit', '18.0', { unit_of_measurement: '°C', device_class: 'temperature' }),
+      entity('night_cool_setpoint', '23.0', { unit_of_measurement: '°C', device_class: 'temperature' }),
+      entity('humidity_limit', '55', { unit_of_measurement: '%' }),
+      entity('humidity_low_step', '1', {}),
+      entity('humidity_high_step', '3', {}),
+      entity('humidity_high_time', '30', { unit_of_measurement: 'min' }),
+      entity('week_program', 'program_1', { device_class: 'enum' }),
+      entity('cooling_setpoint', 'plus_2', { device_class: 'enum' }),
+      entity('cooling_fan_step', '3', {}),
+      entity('user_function_1_type', 'none', { device_class: 'enum' }),
+      entity('user_function_2_type', 'extend', { device_class: 'enum' }),
+      entity('sensor.stue_temperatur'.replace('sensor.nilan_', ''), '21.4', { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'Stue', nilan_device: undefined }),
+    ]);
+    states['sensor.stue_temperatur'] = {
+      entity_id: 'sensor.stue_temperatur',
+      state: '21.4',
+      attributes: { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'Stue' },
+    };
+    delete states['sensor.sensor.stue_temperatur'];
+
+    const now = Date.now();
+    function wave(base, amp, phase) {
+      const points = [];
+      for (let i = 23; i >= 0; i -= 1) {
+        const t = now - i * 3600000;
+        const value = base + Math.sin((23 - i) / 23 * Math.PI * 2 + phase) * amp;
+        points.push({ entity_id: '', state: value.toFixed(1), last_changed: new Date(t).toISOString() });
+      }
+      return points;
+    }
+    const series = {
+      t8_outdoor: wave(10.5, 3.8, 0.4),
+      t3_extract: wave(22.0, 0.6, 1.2),
+      t7_supply: wave(19.2, 0.8, 0.8),
+      t4_exhaust: wave(14.2, 1.1, 0.2),
+      efficiency: wave(72, 6, 2.1),
+    };
+    const history = Object.entries(series).map(([key, points]) => {
+      const id = `sensor.nilan_${key}`;
+      return points.map((row) => Object.assign({}, row, { entity_id: id }));
+    });
+
+    const hass = {
+      language: 'da',
+      user: { id: 'preview', is_admin: true, name: 'Michael' },
+      states,
+      formatEntityState(stateObj) {
+        const raw = String(stateObj.state);
+        if (LABELS[raw] && (stateObj.attributes.device_class === 'enum' || Number.isNaN(Number(raw)))) return LABELS[raw];
+        const value = Number(raw.replace(',', '.'));
+        if (!Number.isFinite(value)) return raw;
+        const digits = raw.includes('.') ? 1 : 0;
+        let text = value.toFixed(digits).replace('.', ',');
+        const unit = stateObj.attributes.unit_of_measurement;
+        return unit ? `${text} ${unit}` : text;
+      },
+      callWS(msg) {
+        if (msg.type === 'history/history_during_period') return Promise.resolve(history);
+        if (msg.type === 'config/entity_registry/get') return Promise.resolve({ config_entry_id: 'preview-entry' });
+        if (msg.type === 'nilan_cts602/plant/get') {
+          return Promise.resolve({ plant: { version: 1, preheater: false, reheater: 'none', co2: false, t10: false, room_source: 'entity', room_entity: 'sensor.stue_temperatur' } });
+        }
+        return Promise.resolve({});
+      },
+    };
+
+    const card = document.createElement('nilan-cts602-card');
+    document.getElementById('stage').append(card);
+    const plant = wizard ? undefined : {
+      version: 1, preheater: false, reheater: 'none', co2: false, t10: false,
+      room_source: 'entity', room_entity: 'sensor.stue_temperatur',
+    };
+    card.setConfig({ language: 'da', view, title: 'Nilan Comfort', plant });
+    card.hass = hass;
+
+    function whenReady(fn) {
+      const started = Date.now();
+      const tick = () => {
+        const chart = card.shadowRoot && card.shadowRoot.querySelector('[data-series]');
+        if (chart || Date.now() - started > 2000) fn();
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+
+    whenReady(() => {
+      card.tab = tab;
+      card.render();
+      if (wizard) card.openWizard();
+      if (tooltip) {
+        const host = card.shadowRoot.querySelector('.history');
+        const rect = host.getBoundingClientRect();
+        host.dispatchEvent(new PointerEvent('pointerdown', { clientX: rect.left + rect.width * 0.62, clientY: rect.top + 40, bubbles: true }));
+      }
+      const legend = [...card.shadowRoot.querySelectorAll('.legend span')].map((node) => node.textContent.trim());
+      const tip = card.shadowRoot.querySelector('.tip');
+      document.body.dataset.legend = legend.join(' | ');
+      document.body.dataset.tip = tip && !tip.hidden ? tip.textContent : '';
+      document.body.dataset.ready = '1';
+    });
+  </script>
+</body>
+</html>
