@@ -321,6 +321,9 @@ class NilanOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        return await self.async_step_equipment(user_input)
+
+    async def async_step_equipment(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             self._equipment = user_input
             return await self.async_step_room()
@@ -335,7 +338,8 @@ class NilanOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             plant = normalize_plant({**self._equipment, **user_input})
             return self.async_create_entry(data={CONF_PLANT: plant})
-        current = normalize_plant({**self._equipment, **normalize_plant(self.config_entry.options.get(CONF_PLANT))})
+        stored = normalize_plant(self.config_entry.options.get(CONF_PLANT))
+        current = normalize_plant({**stored, **self._equipment})
         return self.async_show_form(
             step_id="room",
             data_schema=_room_schema(current),

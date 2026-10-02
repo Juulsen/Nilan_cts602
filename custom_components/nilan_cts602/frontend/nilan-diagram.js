@@ -14,6 +14,13 @@ Colour is muted. Amber and red are reserved for an open bypass and a filter alar
     return `<path class="chevron ${tone || ''}" d="M${x} ${y - 2.6} L${tip} ${y} L${x} ${y + 2.6}" />`;
   }
 
+  function valueMarkup(value) {
+    const text = String(value ?? '—');
+    const match = text.match(/^(.*?)\s+(°C|%|d|ppm|min)$/);
+    if (!match) return esc(text);
+    return `<tspan>${esc(match[1])}</tspan><tspan class="unit"> ${esc(match[2])}</tspan>`;
+  }
+
   function sensor(x, y, side, part, sensorId, title, value) {
     const titleY = side === 'above' ? y - 34 : y + 18;
     const valueY = side === 'above' ? y - 14 : y + 38;
@@ -22,7 +29,7 @@ Colour is muted. Amber and red are reserved for an open bypass and a filter alar
     return `<g class="tag" data-part="${part}" data-sensor="${sensorId}">
       <circle class="bubble" cx="${x}" cy="${y}" r="2.4"/>
       <text class="tag-title" x="${textX}" y="${titleY}" text-anchor="${anchor}">${esc(title)}</text>
-      <text class="tag-value" x="${textX}" y="${valueY}" text-anchor="${anchor}">${esc(value || '—')}</text>
+      <text class="tag-value" x="${textX}" y="${valueY}" text-anchor="${anchor}">${valueMarkup(value)}</text>
     </g>`;
   }
 
@@ -102,7 +109,9 @@ Colour is muted. Amber and red are reserved for an open bypass and a filter alar
   function markup(plant, values) {
     const v = values || {};
     const fitted = plant || {};
-    const bypass = v.bypass === 'open' ? 'open' : v.bypass === 'closed' ? 'closed' : 'unknown';
+    const bypass = v.bypass === 'opening' || v.bypass === 'closing'
+      ? v.bypass
+      : v.bypass === 'open' ? 'open' : v.bypass === 'closed' ? 'closed' : 'unknown';
     const running = !!v.running;
     const alarm = !!v.filterAlarm;
     const flow = running ? 'duct flow' : 'duct';
@@ -125,6 +134,9 @@ Colour is muted. Amber and red are reserved for an open bypass and a filter alar
     ];
     const points = poly.map((point) => `${point.x},${point.y}`).join(' ');
     const blade = bypass === 'open' ? 'M-7 0 H7' : bypass === 'closed' ? 'M0 -7 V7' : 'M-5 -5 L5 5';
+    const supplySpin = v.supplySpin || '1.70';
+    const extractSpin = v.extractSpin || '1.80';
+    const flowSpeed = v.flowSpeed || '1.05';
     const supplyNoteY = 96;
     const extractNoteY = 96;
     const pre = fitted.preheater ? coil(62, supplyY, 'preheater', 'FV') : '';
@@ -135,12 +147,12 @@ Colour is muted. Amber and red are reserved for an open bypass and a filter alar
       ? `<text class="house-note" data-part="t15" data-sensor="t15_panel" x="332" y="170" text-anchor="middle">${esc(v.t15Title || 'T15')}</text>
          <text class="house-note" data-part="t15" data-sensor="t15_panel" x="332" y="186" text-anchor="middle">${esc(v.t15)}</text>`
       : '';
-    return `<svg viewBox="0 0 360 198" width="100%" data-diagram="pid" class="${running ? 'running' : 'stopped'}" role="img">
+    return `<svg viewBox="0 0 360 198" width="100%" data-diagram="pid" class="${running ? 'running' : 'stopped'}" style="--nilan-supply-spin:${supplySpin}s;--nilan-extract-spin:${extractSpin}s;--nilan-flow-speed:${flowSpeed}s" role="img">
       <style>
         text{font-family:var(--nilan-font,Roboto,ui-sans-serif,system-ui,sans-serif)}
         .duct{fill:none;stroke:#8b95a1;stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round}
         .cold{stroke:#7f93a8}.warm{stroke:#b08978}.supply{stroke:#7b9b88}.bypass-live{stroke:#c49a6a}
-        .flow{stroke-dasharray:2.6 2.2;animation:nilan-flow 1.05s linear infinite}
+        .flow{stroke-dasharray:2.6 2.2;animation:nilan-flow var(--nilan-flow-speed,1.05s) linear infinite}
         .chevron{fill:none;stroke-width:1.05;stroke-linecap:round;stroke-linejoin:round}
         .chevron.cold{stroke:#7f93a8}.chevron.warm{stroke:#b08978}.chevron.supply{stroke:#7b9b88}
         .hx-shell{fill:color-mix(in srgb,var(--nilan-fg,#e8eef6) 4%,var(--nilan-bg,#14171c));stroke:#8b95a1;stroke-width:1.15}
@@ -153,22 +165,25 @@ Colour is muted. Amber and red are reserved for an open bypass and a filter alar
         .alarm-note{fill:#c45c4a}
         .fan-ring{fill:var(--nilan-bg,#14171c);stroke:#8b95a1;stroke-width:1.05}
         .rotor{fill:#8b95a1}
-        .running .rotor{animation:nilan-spin 1.7s linear infinite;transform-box:fill-box;transform-origin:center}
+        .running .rotor{animation:nilan-spin var(--nilan-supply-spin,1.7s) linear infinite;transform-box:fill-box;transform-origin:center}
+        .running [data-part="extract_fan"] .rotor{animation-duration:var(--nilan-extract-spin,1.8s)}
+        .running .rotor.stopped{animation:none}
         .hub{fill:var(--nilan-bg,#14171c);stroke:#8b95a1;stroke-width:0.6}
         .coil path{fill:none;stroke:#b08978;stroke-width:1.15}
         .bubble{fill:var(--nilan-bg,#14171c);stroke:var(--nilan-fg,#e8eef6);stroke-width:1}
         .tag{cursor:pointer}
         .tag-title,.eff-title,.house-note,.symbol-note,.damper-note{fill:var(--nilan-muted,#93a0b0)}
         .tag-title{font-size:10px}
-        .tag-value,.eff-value{fill:var(--nilan-fg,#e8eef6);font-weight:650}
+        .tag-value,.eff-value{fill:var(--nilan-fg,#e8eef6);font-weight:650;font-variant-numeric:tabular-nums}
         .tag-value{font-size:12px}
+        .tag-value .unit{font-size:8px;font-weight:500;fill:var(--nilan-muted,#93a0b0)}
         .symbol-note,.damper-note,.eff-title,.house-note{font-size:9px}
         .fan-note{fill:var(--nilan-muted,#93a0b0);font-size:8px}
         .house{fill:none;stroke:#8b95a1;stroke-width:1.15;stroke-linejoin:round}
         .house-name{fill:var(--nilan-fg,#e8eef6);font-size:11px}
         .room-value{fill:var(--nilan-fg,#e8eef6);font-size:10px;font-weight:650;cursor:pointer}
         .damper{stroke:#8b95a1;stroke-width:1.35;stroke-linecap:round;fill:none}
-        .bypass-open .damper{stroke:#c47a3a}
+        .bypass-open .damper,.bypass-opening .damper,.bypass-closing .damper{stroke:#c47a3a}
         .eff-value{font-size:12px;cursor:pointer}
         .hit{fill:transparent;cursor:pointer}
         @keyframes nilan-flow{to{stroke-dashoffset:-9.6}}
@@ -180,7 +195,7 @@ Colour is muted. Amber and red are reserved for an open bypass and a filter alar
         <path class="damper" d="${blade}"/>
         <path class="damper" d="M-3.4 -3.4 L3.4 3.4 M-3.4 3.4 L3.4 -3.4" stroke-width="0.9"/>
       </g>
-      <text class="damper-note" x="166" y="16" text-anchor="middle">${esc(v.bypassShort || '')}</text>
+      ${v.bypassShort ? `<text class="damper-note" x="166" y="16" text-anchor="middle">${esc(v.bypassShort)}</text>` : ''}
       <path class="${flow} cold" data-flow="outdoor" d="M8 ${supplyY} H80"/>
       ${chevron(54, supplyY, 1, 'cold')}
       <path class="${flow} cold" data-flow="outdoor" d="M96 ${supplyY} H103"/>
@@ -198,12 +213,12 @@ Colour is muted. Amber and red are reserved for an open bypass and a filter alar
         ${channels(poly)}
       </g>
       ${filter(88, supplyY, alarm, v.filterDays, 88, 52)}
-      ${fan(112, supplyY, 'supply_fan', running, v.supplyPct, v.supplyStep, supplyNoteY)}
-      ${fan(222, extractY, 'extract_fan', running, v.extractPct, v.extractStep, extractNoteY)}
+      ${fan(112, supplyY, 'supply_fan', !!v.supplySpin, v.supplyPct, v.supplyStep, supplyNoteY)}
+      ${fan(222, extractY, 'extract_fan', !!v.extractSpin, v.extractPct, v.extractStep, extractNoteY)}
       ${filter(250, extractY, alarm, v.filterDays, 250, 114)}
       ${pre}${re}
       <text class="eff-title" data-part="efficiency" x="${cx}" y="164" text-anchor="middle">${esc(v.efficiencyTitle || '')}</text>
-      <text class="eff-value" data-part="efficiency" data-sensor="efficiency" x="${cx}" y="184" text-anchor="middle">${esc(v.efficiency || '—')}</text>
+      <text class="eff-value" data-part="efficiency" data-sensor="efficiency" x="${cx}" y="184" text-anchor="middle">${valueMarkup(v.efficiency || '—')}</text>
       <rect class="hit" data-sensor="efficiency" x="${cx - 46}" y="152" width="92" height="36"/>
       ${sensor(34, supplyY, 'above', 'outdoor', 't8_outdoor', v.outdoorTitle || 'T8 Udeluft', v.t8)}
       ${sensor(248, supplyY, 'above', 'supply', 't7_supply', v.supplyTitle || 'T7 Indblæs', v.t7)}

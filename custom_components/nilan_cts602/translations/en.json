@@ -593,6 +593,12 @@
       "bypass": {
         "name": "Bypass open"
       },
+      "bypass_open_relay": {
+        "name": "Bypass motor opening"
+      },
+      "bypass_close_relay": {
+        "name": "Bypass motor closing"
+      },
       "defrost": {
         "name": "Defrost"
       },

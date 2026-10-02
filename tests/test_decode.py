@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import types
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,11 +29,13 @@ from nilan_cts602.decode import (
     exhaust_efficiency,
     filter_alarm,
     next_bypass,
+    restore_bypass,
     scale_temperature,
     scale_unsigned,
     signed_int16,
     temperature_plausible,
 )
+from nilan_cts602.frontend_resource import pending_resource_updates
 from nilan_cts602.plant import normalize_plant
 from nilan_cts602.writes import (
     NEVER_WRITE_ADDRESSES,
@@ -161,6 +164,144 @@ class BypassTests(unittest.TestCase):
         kept = next_bypass(state, open_relay=None, close_relay=None, position_register=None, use_position_register=False)
         self.assertEqual(kept.position, "open")
 
+    def test_open_stays_open_until_close_pulse(self):
+        stamp = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
+        state = BypassState()
+        opening = next_bypass(
+            state,
+            open_relay=True,
+            close_relay=False,
+            position_register=None,
+            use_position_register=False,
+            now=stamp,
+        )
+        self.assertEqual(opening.position, "unknown")
+        self.assertEqual(opening.moving, "opening")
+        self.assertFalse(opening.restored)
+        opened = next_bypass(
+            opening,
+            open_relay=False,
+            close_relay=False,
+            position_register=None,
+            use_position_register=False,
+            now=stamp,
+        )
+        self.assertEqual(opened.position, "open")
+        self.assertIsNone(opened.moving)
+        self.assertEqual(opened.last_pulse["relay"], "H102")
+        self.assertIn("2026-10-02", opened.last_pulse["at"])
+        idle = next_bypass(
+            opened,
+            open_relay=False,
+            close_relay=False,
+            position_register=None,
+            use_position_register=False,
+            now=stamp,
+        )
+        self.assertEqual(idle.position, "open")
+        self.assertEqual(idle.last_pulse["relay"], "H102")
+        closing = next_bypass(
+            idle,
+            open_relay=False,
+            close_relay=True,
+            position_register=None,
+            use_position_register=False,
+            now=stamp,
+        )
+        self.assertEqual(closing.position, "open")
+        self.assertEqual(closing.moving, "closing")
+        closed = next_bypass(
+            closing,
+            open_relay=False,
+            close_relay=False,
+            position_register=None,
+            use_position_register=False,
+            now=stamp,
+        )
+        self.assertEqual(closed.position, "closed")
+        self.assertEqual(closed.last_pulse["relay"], "H103")
+        self.assertFalse(closed.restored)
+
+    def test_restore_keeps_position_until_a_live_pulse(self):
+        pulse = {"relay": "H102", "at": "2026-10-01T00:00:00+00:00"}
+        restored = restore_bypass(BypassState(), position="open", last_pulse=pulse)
+        self.assertTrue(restored.restored)
+        self.assertEqual(restored.position, "open")
+        self.assertEqual(restored.last_pulse["relay"], "H102")
+        idle = next_bypass(
+            restored,
+            open_relay=False,
+            close_relay=False,
+            position_register=None,
+            use_position_register=False,
+        )
+        self.assertTrue(idle.restored)
+        self.assertEqual(idle.position, "open")
+        live = BypassState("closed")
+        self.assertIs(restore_bypass(live, position="open", last_pulse=pulse), live)
+        opening = next_bypass(
+            restored,
+            open_relay=True,
+            close_relay=False,
+            position_register=None,
+            use_position_register=False,
+        )
+        self.assertEqual(opening.moving, "opening")
+        self.assertFalse(opening.restored)
+        self.assertEqual(opening.position, "open")
+
+    def test_snapshot_exposes_relays_and_restore_attributes(self):
+        flap = BypassState("open", False, False, None, True, {"relay": "H102", "at": "2026-10-01T00:00:00+00:00"})
+        snapshot = build_snapshot(
+            inputs={},
+            holdings={102: 0, 103: 1},
+            protocol=9,
+            bypass_position="unknown",
+            plant=normalize_plant({}),
+            bypass=flap,
+        )
+        bypass = snapshot["points"]["bypass"]
+        self.assertTrue(bypass["available"])
+        self.assertTrue(bypass["value"])
+        self.assertTrue(bypass["attributes"]["restored"])
+        self.assertEqual(bypass["attributes"]["position"], "open")
+        self.assertEqual(bypass["attributes"]["last_pulse"]["relay"], "H102")
+        self.assertEqual(bypass["attributes"]["source"], "relay_pulse")
+        self.assertFalse(snapshot["points"]["bypass_open_relay"]["value"])
+        self.assertTrue(snapshot["points"]["bypass_close_relay"]["value"])
+        self.assertEqual(snapshot["points"]["bypass_open_relay"]["attributes"]["modbus"], "40103")
+        self.assertEqual(snapshot["points"]["bypass_close_relay"]["attributes"]["modbus"], "40104")
+        missing = build_snapshot(
+            inputs={},
+            holdings={},
+            protocol=9,
+            bypass_position="unknown",
+            plant=normalize_plant({}),
+            bypass=BypassState(),
+        )
+        self.assertFalse(missing["points"]["bypass"]["available"])
+        self.assertFalse(missing["points"]["bypass_open_relay"]["available"])
+        self.assertIsNone(missing["points"]["bypass_open_relay"]["value"])
+
+
+class ResourceTests(unittest.TestCase):
+    def test_only_the_nilan_card_url_is_rewritten(self):
+        items = [
+            {"id": "76e93f47e5344082b69d7c95bdd17373", "url": "/nilan_cts602-static/nilan-card.js?v=0.2.0"},
+            {"id": "other", "url": "/local/other.js?v=1"},
+            {"id": "same", "url": "/nilan_cts602-static/nilan-card.js?v=0.2.1"},
+            "skip",
+        ]
+        self.assertEqual(
+            pending_resource_updates(items, "0.2.1"),
+            [("76e93f47e5344082b69d7c95bdd17373", "/nilan_cts602-static/nilan-card.js?v=0.2.1")],
+        )
+        known = [{"id": "76e93f47e5344082b69d7c95bdd17373", "url": "/local/renamed.js"}]
+        self.assertEqual(
+            pending_resource_updates(known, "0.2.1"),
+            [("76e93f47e5344082b69d7c95bdd17373", "/nilan_cts602-static/nilan-card.js?v=0.2.1")],
+        )
+
 
 class ProtocolTests(unittest.TestCase):
     def test_blocks_follow_protocol(self):
@@ -194,6 +335,8 @@ class ProtocolTests(unittest.TestCase):
         self.assertNotIn("reheater", plain)
         self.assertIn("filter_days_left", plain)
         self.assertIn("efficiency", plain)
+        self.assertIn("bypass_open_relay", plain)
+        self.assertIn("bypass_close_relay", plain)
         self.assertIn("t15_panel", plain)
         fitted = {spec.key for spec in iter_entities(9, normalize_plant({"co2": True, "preheater": True, "reheater": "water"}))}
         self.assertIn("co2", fitted)

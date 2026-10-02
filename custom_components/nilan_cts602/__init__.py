@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -10,7 +11,7 @@ from typing import Any
 from homeassistant.components import websocket_api
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_PORT, CONF_TIMEOUT
+from homeassistant.const import CONF_HOST, CONF_PORT, CONF_TIMEOUT, EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv, entity_registry as er
@@ -32,12 +33,15 @@ from .const import (
     DOMAIN,
     PLATFORMS,
     STATIC_PATH,
+    VERSION,
 )
+from .frontend_resource import pending_resource_updates
 from .coordinator import NilanDataUpdateCoordinator
 from .modbus_client import NilanModbusClient
 from .plant import normalize_plant
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+_LOGGER = logging.getLogger(__name__)
 
 ENABLEABLE_KEYS = ("t2_inlet", "t9_heater", "t10_external")
 
@@ -71,7 +75,43 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         websocket_api.async_register_command(hass, ws_plant_get)
         websocket_api.async_register_command(hass, ws_plant_set)
         websocket_api.async_register_command(hass, ws_entities_enable)
+
+    async def _refresh_card(_event=None) -> None:
+        await async_refresh_card_resource(hass)
+
+    if hass.is_running:
+        hass.async_create_task(_refresh_card())
+    else:
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _refresh_card)
     return True
+
+
+async def async_refresh_card_resource(hass: HomeAssistant) -> None:
+    """Rewrite ?v= on the existing Nilan card resource. Does not create one."""
+
+    lovelace = hass.data.get("lovelace")
+    resources = getattr(lovelace, "resources", None)
+    if resources is None or not hasattr(resources, "async_update_item"):
+        return
+    if getattr(resources, "loaded", True) is False and hasattr(resources, "async_load"):
+        try:
+            await resources.async_load()
+        except Exception:
+            _LOGGER.debug("Could not load Lovelace resources", exc_info=True)
+            return
+        resources.loaded = True
+    try:
+        items = resources.async_items()
+    except Exception:
+        _LOGGER.debug("Could not list Lovelace resources", exc_info=True)
+        return
+    for item_id, url in pending_resource_updates(items, VERSION):
+        try:
+            await resources.async_update_item(item_id, {"url": url})
+        except Exception:
+            _LOGGER.debug("Could not update Lovelace resource %s", item_id, exc_info=True)
+            continue
+        _LOGGER.info("Updated Nilan card resource %s to %s", item_id, url)
 
 
 def _entry_or_error(hass, connection, msg):

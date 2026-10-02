@@ -4,6 +4,14 @@ All notable changes to **Nilan CTS602** are documented in this file.
 
 The project follows [Semantic Versioning](https://semver.org/). During the pre-1.0 development phase, minor releases can add entities and dashboard behaviour while the hardware interface is being verified.
 
+## [0.2.1] - 2026-10-02
+
+- The options flow can save the equipment step. A change to preheater, reheater, CO₂ or T10 is kept when the room step is saved.
+- On protocol 9 the bypass position follows the last finished motor pulse. Holding 102 (H102) opens the damper and holding 103 (H103) closes it. Open stays open until a close pulse finishes, and the other way around.
+- The last position is restored after a restart and shown as last known until the next pulse. While the motor runs the card says `Bypass åbner…` or `Bypass lukker…`. The two relays are diagnostic sensors.
+- Card type, spacing and motion are tightened. Missing values are left out instead of showing “unavailable”. Fan spin follows fan speed, and reduced motion turns the animation off.
+- Still read-only. Dashboard resource: `/nilan_cts602-static/nilan-card.js?v=0.2.1`
+
 ## [0.2.0] - 2026-10-02
 
 - Replaced the overview graphic with a P&ID schematic: thin ducts, small flow chevrons, and animated dashes while the fans run.

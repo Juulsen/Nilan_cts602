@@ -1,5 +1,5 @@
-/* Nilan CTS602 dashboard. Read-only in 0.2.0. No external card dependencies. */
-const NILAN_VERSION = '0.2.0';
+/* Nilan CTS602 dashboard. Read-only in 0.2.1. No external card dependencies. */
+const NILAN_VERSION = '0.2.1';
 const NILAN_STATIC = '/nilan_cts602-static/';
 
 async function nilanLoadLibs() {
@@ -94,13 +94,30 @@ class NilanCard extends HTMLElement {
     return Number.isFinite(value) ? value : null;
   }
   on(key) { return this.find(key)?.[1].state === 'on'; }
-  text(key) {
+  display(key) {
     const match = this.find(key);
-    if (!match) return '—';
-    if (match[1].state === 'unavailable') return this.tr('Utilgængelig', 'Unavailable');
-    if (match[1].state === 'unknown') return this.tr('Ukendt', 'Unknown');
-    if (this._hass.formatEntityState) return this._hass.formatEntityState(match[1]);
-    return String(match[1].state);
+    if (!match) return { text: '—', muted: true };
+    const state = String(match[1].state ?? '');
+    if (!state || state === 'unavailable' || state === 'unknown' || state === 'none') return { text: '—', muted: true };
+    const numeric = this.num(key);
+    const unit = match[1].attributes?.unit_of_measurement || '';
+    if (numeric != null && unit) {
+      const digits = unit === '%' || unit === 'd' || unit === 'ppm' || unit === 'min' ? 0 : 1;
+      return { text: this.fmt(numeric, digits, ''), unit };
+    }
+    if (this._hass.formatEntityState) return { text: this._hass.formatEntityState(match[1]) };
+    return { text: state };
+  }
+  text(key) {
+    const shown = this.display(key);
+    return shown.unit ? `${shown.text} ${shown.unit}` : shown.text;
+  }
+  valueNode(key) {
+    const shown = this.display(key);
+    const node = el('div', undefined, shown.muted ? 'value muted' : 'value');
+    node.append(document.createTextNode(shown.text));
+    if (shown.unit) node.append(el('span', shown.unit, 'unit'));
+    return node;
   }
   name(key, fallback) {
     return this.find(key)?.[1].attributes.friendly_name || fallback || key;
@@ -181,7 +198,12 @@ class NilanCard extends HTMLElement {
     return node;
   }
   refreshLive() {
-    for (const node of this.shadowRoot.querySelectorAll('[data-live]')) node.textContent = this.text(node.dataset.live);
+    for (const node of this.shadowRoot.querySelectorAll('[data-live]')) {
+      const shown = this.display(node.dataset.live);
+      node.replaceChildren(document.createTextNode(shown.text));
+      if (shown.unit) node.append(el('span', shown.unit, 'unit'));
+      node.classList.toggle('muted', !!shown.muted);
+    }
   }
   render() {
     if (!this.config) return;
@@ -222,7 +244,7 @@ class NilanCard extends HTMLElement {
     if (this.tab === 'filter') this.filter(card);
     if (this.tab === 'settings') this.settings(card);
     const foot = el('div', undefined, 'footer');
-    foot.append(el('span', this.tr('Kun læsning i 0.2.0. Tryk på grafen for værdier.', 'Read-only in 0.2.0. Tap the chart for values.')));
+    foot.append(el('span', this.tr('Kun læsning i 0.2.1. Tryk på grafen for værdier.', 'Read-only in 0.2.1. Tap the chart for values.')));
     foot.append(el('span', `Juulsen · ${NILAN_VERSION}`));
     card.append(foot);
     this.ensureHistory();
@@ -296,8 +318,9 @@ class NilanCard extends HTMLElement {
         const tile = el('button', undefined, 'metric');
         tile.type = 'button';
         tile.append(el('small', this.shortName(key)));
-        tile.append(el('div', this.text(key), 'value'));
-        tile.querySelector('.value').dataset.live = key;
+        const value = this.valueNode(key);
+        value.dataset.live = key;
+        tile.append(value);
         tile.onclick = () => this.moreInfo(key);
         grid.append(tile);
       }
@@ -321,13 +344,34 @@ class NilanCard extends HTMLElement {
     };
     return names[key] || key;
   }
+  pace(pct, step) {
+    let speed = null;
+    const percent = Number(String(pct ?? '').replace(',', '.').replace(/[^\d.]/g, ''));
+    if (Number.isFinite(percent) && percent > 0) speed = percent;
+    else {
+      const stepNo = Number(String(step ?? '').replace(/[^\d.]/g, ''));
+      if (Number.isFinite(stepNo) && stepNo > 0) speed = Math.min(100, stepNo * 25);
+    }
+    if (!speed || !this.on('running')) return '';
+    return (2.8 - (Math.min(100, speed) / 100) * 2.15).toFixed(2);
+  }
   diagramValues() {
-    const bypass = this.bypassPosition();
+    const bypass = this.bypassView();
     const days = this.num('filter_days_left');
     const pct = (key) => (this.num(key) == null ? '' : this.fmt(this.num(key), 0, '%'));
     const step = (key) => (this.num(key) == null ? '' : this.tr(`trin ${this.fmt(this.num(key), 0)}`, `step ${this.fmt(this.num(key), 0)}`));
+    const supplyPct = pct('supply_fan_speed');
+    const extractPct = pct('extract_fan_speed');
+    const supplyStep = step('supply_fan_step');
+    const extractStep = step('extract_fan_step');
+    const supplySpin = this.pace(supplyPct, supplyStep);
+    const extractSpin = this.pace(extractPct, extractStep);
+    const spins = [supplySpin, extractSpin].map(Number).filter((value) => value > 0);
     return {
       running: this.on('running'),
+      supplySpin,
+      extractSpin,
+      flowSpeed: spins.length ? (spins.reduce((sum, value) => sum + value, 0) / spins.length).toFixed(2) : '',
       t8: this.fmt(this.num('t8_outdoor'), 1, '°C'),
       t3: this.fmt(this.num('t3_extract'), 1, '°C'),
       t7: this.fmt(this.num('t7_supply'), 1, '°C'),
@@ -335,14 +379,14 @@ class NilanCard extends HTMLElement {
       t15: this.find('t15_panel') ? this.fmt(this.num('t15_panel'), 1, '°C') : '',
       room: this.fmt(this.num('room_temperature'), 1, '°C'),
       efficiency: this.fmt(this.num('efficiency'), 1, '%'),
-      supplyPct: pct('supply_fan_speed'),
-      extractPct: pct('extract_fan_speed'),
-      supplyStep: step('supply_fan_step'),
-      extractStep: step('extract_fan_step'),
+      supplyPct,
+      extractPct,
+      supplyStep,
+      extractStep,
       filterDays: days == null ? '' : this.fmt(days, 0, 'd'),
       filterAlarm: this.on('filter'),
-      bypass,
-      bypassShort: bypass === 'open' ? this.tr('åben', 'open') : bypass === 'closed' ? this.tr('lukket', 'closed') : this.tr('ukendt', 'unknown'),
+      bypass: bypass.state,
+      bypassShort: bypass.short,
       outdoorTitle: this.tr('T8 Udeluft', 'T8 Outdoor'),
       supplyTitle: this.tr('T7 Indblæs', 'T7 Supply'),
       extractTitle: this.tr('T3 Udsug', 'T3 Extract'),
@@ -361,17 +405,31 @@ class NilanCard extends HTMLElement {
     if (match?.[1].state === 'off') return 'closed';
     return 'unknown';
   }
+  bypassView() {
+    const match = this.find('bypass');
+    const attrs = match?.[1].attributes || {};
+    const moving = attrs.moving;
+    const restored = attrs.restored === true || attrs.restored === 'true';
+    const position = this.bypassPosition();
+    if (moving === 'opening') return { state: 'opening', short: this.tr('åbner…', 'opening…'), chip: this.tr('Bypass åbner…', 'Bypass opening…'), kind: 'warn' };
+    if (moving === 'closing') return { state: 'closing', short: this.tr('lukker…', 'closing…'), chip: this.tr('Bypass lukker…', 'Bypass closing…'), kind: 'warn' };
+    if (position !== 'open' && position !== 'closed') return { state: 'unknown', short: '', chip: '', kind: 'idle' };
+    const open = position === 'open';
+    const label = open ? this.tr('Bypass åben', 'Bypass open') : this.tr('Bypass lukket', 'Bypass closed');
+    const short = restored ? this.tr('seneste', 'last') : open ? this.tr('åben', 'open') : this.tr('lukket', 'closed');
+    return {
+      state: position,
+      short,
+      chip: restored ? `${label} · ${this.tr('seneste kendte', 'last known')}` : label,
+      kind: open ? 'warn' : 'ok',
+    };
+  }
   chips(card) {
     const row = el('div', undefined, 'chips');
     row.append(this.chip(this.on('running') ? 'ok' : 'idle', this.on('running') ? this.tr('Kører', 'Running') : this.tr('Stoppet', 'Stopped')));
     row.append(this.chip(this.on('summer') ? 'info' : 'idle', this.on('summer') ? this.tr('Sommer', 'Summer') : this.tr('Vinter', 'Winter')));
-    const bypass = this.bypassPosition();
-    const bypassText = bypass === 'open'
-      ? this.tr('Bypass åben', 'Bypass open')
-      : bypass === 'closed'
-        ? this.tr('Bypass lukket', 'Bypass closed')
-        : this.tr('Bypass ukendt', 'Bypass unknown');
-    row.append(this.chip(bypass === 'open' ? 'warn' : bypass === 'closed' ? 'ok' : 'idle', bypassText));
+    const bypass = this.bypassView();
+    if (bypass.chip) row.append(this.chip(bypass.kind, bypass.chip));
     row.append(this.chip(this.on('filter') ? 'warn' : 'ok', this.on('filter') ? this.tr('Filter', 'Filter') : this.tr('Filter ok', 'Filter ok')));
     if (this.on('defrost')) row.append(this.chip('info', this.tr('Afrimning', 'Defrost')));
     if (this.on('user_function')) row.append(this.chip('info', this.tr('Brugerfunktion', 'User function')));
@@ -481,11 +539,13 @@ class NilanCard extends HTMLElement {
   }
   metric(label, value) {
     const tile = el('div', undefined, 'metric');
-    tile.append(el('small', label), el('div', value, 'value'));
+    const shown = el('div', undefined, value === '—' ? 'value muted' : 'value');
+    shown.append(document.createTextNode(value));
+    tile.append(el('small', label), shown);
     return tile;
   }
   settings(card) {
-    card.append(el('p', this.tr('Version 0.2.0 skriver ikke til regulatoren. Tallene er de aktuelle indstillinger.', 'Version 0.2.0 does not write to the controller. These are the current settings.'), 'muted'));
+    card.append(el('p', this.tr('Version 0.2.1 skriver ikke til regulatoren. Tallene er de aktuelle indstillinger.', 'Version 0.2.1 does not write to the controller. These are the current settings.'), 'muted'));
     for (const key of NILAN_SETTINGS) {
       const match = this.find(key);
       if (!match) continue;
@@ -576,38 +636,40 @@ const CARD_CSS = `
   --nilan-control:var(--secondary-background-color,#1b212b);
   --nilan-chip:color-mix(in srgb,var(--nilan-fg) 6%,var(--nilan-bg));
   --nilan-accent:#1f8a70;--nilan-cold:#4aa3ff;--nilan-warm:#e07a3d;--nilan-ok:#1f9d55;
+  --nilan-radius:var(--ha-card-border-radius,1.25rem);
   --nilan-font:var(--ha-font-family-body,var(--paper-font-body1_-_font-family,Roboto,ui-sans-serif,system-ui,sans-serif));
-  font-family:var(--nilan-font);color:var(--nilan-fg)}
+  font-family:var(--nilan-font);color:var(--nilan-fg);font-size:1rem}
 *{box-sizing:border-box;font-family:inherit}
-ha-card{display:block;width:100%;padding:14px;background:var(--nilan-bg);color:var(--nilan-fg);border-radius:20px;border:1px solid var(--nilan-line);overflow:hidden}
-header{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
-h2{font-size:18px;margin:0;font-weight:650}h3{font-size:13px;margin:12px 0 4px;font-weight:650}
+ha-card{display:block;width:100%;padding:0.9rem;background:var(--nilan-bg);color:var(--nilan-fg);border-radius:var(--nilan-radius);border:1px solid var(--nilan-line);overflow:hidden}
+header{display:flex;justify-content:space-between;gap:0.5rem;align-items:center;margin-bottom:0.55rem}
+h2{font-size:1.15rem;margin:0;font-weight:650;letter-spacing:-0.01em}h3{font-size:0.82rem;margin:0.85rem 0 0.25rem;font-weight:650}
 small,.muted{color:var(--nilan-muted)}
 .brand{display:flex;gap:10px;align-items:center;min-width:0}
 .logo{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:var(--nilan-accent);color:#04221c;font-weight:750;flex:none}
 .brand small{display:block}
 .head-tools{display:flex;align-items:center;gap:8px;flex:none}
-.mode-pill{border-radius:999px;padding:6px 10px;background:color-mix(in srgb,#1f9d55 22%,var(--nilan-control));font-size:12px;font-weight:650}
+.mode-pill{border-radius:999px;padding:0.35rem 0.65rem;background:color-mix(in srgb,#1f9d55 22%,var(--nilan-control));font-size:0.75rem;font-weight:650}
 .view-toggle{display:flex;border:1px solid var(--nilan-line);border-radius:12px;overflow:hidden;background:var(--nilan-control)}
 nav{display:flex;gap:2px;overflow:auto;margin:0 0 10px;border-bottom:1px solid var(--nilan-line)}
-button,input,select{font:inherit;font-size:14px;border:1px solid var(--nilan-line);border-radius:10px;padding:8px 10px;color:var(--nilan-fg);background:var(--nilan-control)}
+button,input,select{font:inherit;font-size:0.875rem;border:1px solid var(--nilan-line);border-radius:0.65rem;padding:0.5rem 0.65rem;color:var(--nilan-fg);background:var(--nilan-control)}
 button{cursor:pointer}
 .view-toggle button,.nav button{background:transparent;border-color:transparent;border-radius:0;color:var(--nilan-muted)}
 .view-toggle button.active,nav button.active{color:var(--nilan-fg)}
 nav button.active{box-shadow:inset 0 -2px 0 var(--nilan-accent)}
 .primary{background:var(--nilan-accent);color:#04221c;border-color:transparent}
-.diagram{border-radius:16px;overflow:hidden;background:var(--nilan-chip);margin-bottom:8px}
+.diagram{border-radius:calc(var(--nilan-radius) - 0.25rem);overflow:hidden;background:var(--nilan-chip);margin-bottom:0.5rem}
 .diagram svg{display:block;width:min(100%,760px);height:auto;margin-inline:auto}
 .history svg{display:block;width:100%;height:auto;max-height:220px}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
-.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--nilan-line);border-radius:999px;padding:4px 8px;font-size:12px}
+.chips{display:flex;flex-wrap:wrap;gap:0.4rem;margin:0.5rem 0}
+.chip{display:inline-flex;align-items:center;gap:0.35rem;border:1px solid var(--nilan-line);border-radius:999px;padding:0.22rem 0.55rem;font-size:0.75rem;font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--nilan-fg) 4%,var(--nilan-bg))}
 .dot{width:7px;height:7px;border-radius:50%;background:#9aa6b5;display:inline-block}
 .dot.ok{background:#1f9d55}.dot.warn{background:#e0a15a}.dot.info{background:#4aa3ff}.dot.idle{background:#9aa6b5}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .metric{text-align:left;padding:12px;border-radius:14px;background:var(--nilan-chip);color:inherit;min-width:0}
 .metric small{display:block;min-height:2.4em;color:var(--nilan-muted)}
-.value{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
-.legend{display:flex;flex-wrap:wrap;gap:8px 12px;font-size:12px;margin:4px 0 6px}
+.value{font-size:1.35rem;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+.value .unit{font-size:0.62em;font-weight:550;color:var(--nilan-muted);margin-left:0.2em}
+.legend{display:flex;flex-wrap:wrap;gap:0.45rem 0.75rem;font-size:0.75rem;margin:0.25rem 0 0.4rem;font-variant-numeric:tabular-nums}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .swatch{width:16px;height:3px;border-radius:2px;display:inline-block}
 .history{position:relative;margin-top:4px}
@@ -621,7 +683,7 @@ nav button.active{box-shadow:inset 0 -2px 0 var(--nilan-accent)}
 .row{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid var(--nilan-line)}
 .bar{height:8px;border-radius:8px;background:var(--nilan-line);margin:8px 0;overflow:hidden}
 .bar-fill{height:100%;background:var(--nilan-accent)}
-.footer{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--nilan-muted);margin-top:12px}
+.footer{display:flex;justify-content:space-between;gap:0.5rem;font-size:0.75rem;color:var(--nilan-muted);margin-top:0.75rem}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 dialog{max-width:min(520px,94vw);border:1px solid var(--nilan-line);border-radius:18px;padding:18px;background:var(--nilan-bg);color:var(--nilan-fg)}
 dialog::backdrop{background:#0008}
@@ -635,7 +697,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--nilan-accent);
 @container (max-width:420px){
   ha-card{padding:12px}
   nav button{padding:8px;font-size:13px}
-  .value{font-size:20px}
+  .value{font-size:1.2rem}
   header{align-items:flex-start}
 }
 `;
