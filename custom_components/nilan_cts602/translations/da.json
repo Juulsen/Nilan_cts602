@@ -593,6 +593,12 @@
       "bypass": {
         "name": "Bypass åben"
       },
+      "bypass_open_relay": {
+        "name": "Bypass motor åbner"
+      },
+      "bypass_close_relay": {
+        "name": "Bypass motor lukker"
+      },
       "defrost": {
         "name": "Afrimning"
       },

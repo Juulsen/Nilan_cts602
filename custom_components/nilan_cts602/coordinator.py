@@ -8,7 +8,7 @@ cycle, so the shared gateway is not polled harder than it needs to be.
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .catalog import read_blocks
 from .const import CONF_PLANT, CONF_PROTOCOL, CONF_SW_VERSION, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .decode import BypassState, build_snapshot, next_bypass
+from .decode import restore_bypass as apply_restored_bypass
 from .modbus_client import NilanModbusClient, NilanModbusError
 from .plant import normalize_plant
 
@@ -107,13 +108,28 @@ class NilanDataUpdateCoordinator(DataUpdateCoordinator[dict]):
                 close_relay=bool(self._holdings.get(103)),
                 position_register=self._inputs.get(3000) if use_position else None,
                 use_position_register=use_position,
+                now=datetime.now(UTC),
             )
 
+        return self._snapshot(protocol)
+
+    def restore_bypass(self, *, position: str, last_pulse: dict | None) -> None:
+        """Apply a position saved by RestoreEntity. A live pulse wins."""
+
+        updated = apply_restored_bypass(self._bypass, position=position, last_pulse=last_pulse)
+        if updated is self._bypass:
+            return
+        self._bypass = updated
+        if isinstance(self.data, dict):
+            self.async_set_updated_data(self._snapshot(self.protocol))
+
+    def _snapshot(self, protocol: int) -> dict:
         snapshot = build_snapshot(
             inputs=self._inputs,
             holdings=self._holdings,
             protocol=protocol,
             bypass_position=self._bypass.position,
+            bypass=self._bypass,
             plant=self._plant(),
         )
         if not snapshot.get("sw_version"):

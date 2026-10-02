@@ -9,7 +9,7 @@ from Nilan's Modbus table.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import UTC, date, datetime, time
 
 from .alarms import alarm_for_code
 
@@ -266,18 +266,51 @@ def decode_clock(
 class BypassState:
     """Latched bypass flap position.
 
-    On protocol versions before 11 the open and close registers are motor
-    relays. They are 1 only while the flap is travelling (about four minutes
-    on a Comfort) and then return to 0. The published position therefore
-    changes when a pulse ends, and it does not follow the relay bit.
+    Holding 102 (Modbus 40103, H102 BypassOpen) and holding 103 (40104, H103
+    BypassClose) are motor relays. On protocol 9 they are 1 only while the
+    flap is travelling and then return to 0. The position follows the last
+    finished pulse: open stays open until a close pulse completes, and the
+    other way around. `moving` is set while a relay is still on.
     """
 
     position: str = "unknown"
     pending_open: bool = False
     pending_close: bool = False
+    moving: str | None = None
+    restored: bool = False
+    last_pulse: dict | None = None
 
     def copy(self) -> BypassState:
-        return BypassState(self.position, self.pending_open, self.pending_close)
+        pulse = dict(self.last_pulse) if isinstance(self.last_pulse, dict) else self.last_pulse
+        return BypassState(
+            self.position,
+            self.pending_open,
+            self.pending_close,
+            self.moving,
+            self.restored,
+            pulse,
+        )
+
+
+def _pulse(relay: str, now: datetime | None) -> dict:
+    stamp = now or datetime.now(UTC)
+    return {"relay": relay, "at": stamp.isoformat()}
+
+
+def restore_bypass(state: BypassState, *, position: str, last_pulse: dict | None) -> BypassState:
+    """Keep a position saved before restart, until a live pulse is seen.
+
+    A pulse that already happened in this process is not replaced.
+    """
+
+    if state.moving or state.pending_open or state.pending_close:
+        return state
+    if state.position in ("open", "closed") and not state.restored:
+        return state
+    if position not in ("open", "closed"):
+        return state
+    pulse = dict(last_pulse) if isinstance(last_pulse, dict) else None
+    return BypassState(position, False, False, None, True, pulse)
 
 
 def next_bypass(
@@ -287,31 +320,36 @@ def next_bypass(
     close_relay: bool | None,
     position_register: int | None,
     use_position_register: bool,
+    now: datetime | None = None,
 ) -> BypassState:
     """Advance the latched bypass position by one poll."""
 
     if use_position_register and position_register is not None:
         position = "open" if int(position_register) else "closed"
-        return BypassState(position, False, False)
+        return BypassState(position, False, False, None, False, state.last_pulse)
 
     if open_relay is None or close_relay is None:
         return state.copy()
 
-    pending_open = state.pending_open
-    pending_close = state.pending_close
-    position = state.position
-
     if open_relay and close_relay:
-        return BypassState(position, pending_open, pending_close)
+        return state.copy()
     if open_relay:
-        return BypassState(position, True, False)
+        return BypassState(state.position, True, False, "opening", False, state.last_pulse)
     if close_relay:
-        return BypassState(position, False, True)
-    if pending_open:
+        return BypassState(state.position, False, True, "closing", False, state.last_pulse)
+
+    position = state.position
+    last_pulse = state.last_pulse
+    restored = state.restored
+    if state.pending_open:
         position = "open"
-    elif pending_close:
+        restored = False
+        last_pulse = _pulse("H102", now)
+    elif state.pending_close:
         position = "closed"
-    return BypassState(position, False, False)
+        restored = False
+        last_pulse = _pulse("H103", now)
+    return BypassState(position, False, False, None, restored, last_pulse)
 
 
 def _point(value: object, *, available: bool | None = None, **attributes: object) -> dict:
@@ -362,6 +400,7 @@ def build_snapshot(
     bypass_position: str,
     plant: dict,
     external_room: float | None = None,
+    bypass: BypassState | None = None,
 ) -> dict:
     """Decode a register image into entity points. Missing keys are omitted."""
 
@@ -486,11 +525,27 @@ def build_snapshot(
             available=capacity is not None,
         )
 
+    flap = bypass if bypass is not None else BypassState(position=bypass_position)
     points["bypass"] = _point(
-        bypass_position == "open" if bypass_position in ("open", "closed") else None,
-        available=bypass_position in ("open", "closed"),
-        position=bypass_position,
+        flap.position == "open" if flap.position in ("open", "closed") else None,
+        available=flap.position in ("open", "closed"),
+        position=flap.position,
+        moving=flap.moving,
+        restored=flap.restored,
+        last_pulse=flap.last_pulse,
         source="position_register" if protocol >= BYPASS_POSITION_PROTOCOL else "relay_pulse",
+    )
+    points["bypass_open_relay"] = _point(
+        bool(holdings[102]) if 102 in holdings else None,
+        available=102 in holdings,
+        register="holding_102",
+        modbus="40103",
+    )
+    points["bypass_close_relay"] = _point(
+        bool(holdings[103]) if 103 in holdings else None,
+        available=103 in holdings,
+        register="holding_103",
+        modbus="40104",
     )
     defrost = _get(holdings, 125)
     points["defrost"] = _point(bool(defrost) if defrost is not None else None, available=defrost is not None)
@@ -556,7 +611,7 @@ def build_snapshot(
         "sw_version": points.get("sw_version", {}).get("value"),
         "model": "COMFORT",
         "points": points,
-        "bypass_position": bypass_position,
+        "bypass_position": flap.position,
     }
 
 

@@ -7,6 +7,7 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '../custom_components/nilan_cts602/frontend');
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../custom_components/nilan_cts602/manifest.json'), 'utf8'));
 const cardSource = fs.readFileSync(path.join(root, 'nilan-card.js'), 'utf8');
+const diagramSource = fs.readFileSync(path.join(root, 'nilan-diagram.js'), 'utf8');
 assert.match(cardSource, new RegExp(`const NILAN_VERSION = '${manifest.version}'`));
 assert.match(cardSource, /const NILAN_STATIC = '\/nilan_cts602-static\/'/);
 assert.match(cardSource, /\?v=\$\{NILAN_VERSION\}/);
@@ -20,6 +21,10 @@ assert.match(cardSource, /Indstillinger/);
 assert.match(cardSource, /protokol /);
 assert.match(cardSource, /Bypass lukket/);
 assert.match(cardSource, /Bypass åben/);
+assert.match(cardSource, /Bypass åbner…/);
+assert.match(cardSource, /seneste kendte/);
+assert.match(diagramSource, /prefers-reduced-motion/);
+assert.doesNotMatch(cardSource, /Utilgængelig/);
 assert.doesNotMatch(cardSource, /bus \$\{protocol\}/);
 assert.doesNotMatch(cardSource, /'Veksler'/);
 assert.match(cardSource, /nilan_cts602\/plant\/set/);
@@ -128,4 +133,24 @@ assert.equal(card.tr('Grafisk', 'Graphic'), 'Grafisk');
 card.config.language = 'en';
 assert.equal(card.fmt(12.3, 1, '°C'), '12.3 °C');
 assert.equal(card.viewMode(), 'graphic');
+
+function nilanState(key, value, attributes) {
+  return { state: value, attributes: { nilan_device: 'comfort', register_key: key, ...attributes } };
+}
+card.config.language = 'da';
+card._hass.states = {
+  'binary_sensor.bypass': nilanState('bypass', 'on', { position: 'open', restored: true, last_pulse: { relay: 'H102', at: '2026-10-01T00:00:00+00:00' } }),
+  'binary_sensor.running': nilanState('running', 'on', {}),
+};
+assert.equal(card.bypassView().chip, 'Bypass åben · seneste kendte');
+assert.equal(card.bypassView().short, 'seneste');
+card._hass.states['binary_sensor.bypass'] = nilanState('bypass', 'on', { position: 'open', moving: 'opening' });
+assert.equal(card.bypassView().chip, 'Bypass åbner…');
+card._hass.states['binary_sensor.bypass'] = nilanState('bypass', 'unavailable', { position: 'unknown' });
+assert.equal(card.bypassView().chip, '');
+assert.equal(card.display('t8_outdoor').text, '—');
+assert.equal(card.pace('45 %', ''), '1.83');
+card._hass.states['binary_sensor.running'] = nilanState('running', 'off', {});
+assert.equal(card.pace('45 %', ''), '');
+
 console.log('PASS: plant, diagram, chart legend, tooltip, comma, card version and read-only contract');

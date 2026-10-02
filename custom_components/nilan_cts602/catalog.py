@@ -153,6 +153,8 @@ ENTITIES: tuple[EntitySpec, ...] = (
     EntitySpec("alarm_active", "binary_sensor", "Alarm active", "Alarm aktiv", "problem", icon="mdi:bell-alert"),
     EntitySpec("filter", "binary_sensor", "Filter alarm", "Filteralarm", "problem", icon="mdi:air-filter"),
     EntitySpec("bypass", "binary_sensor", "Bypass open", "Bypass åben", "opening", icon="mdi:swap-horizontal"),
+    EntitySpec("bypass_open_relay", "binary_sensor", "Bypass motor opening", "Bypass motor åbner", "running", icon="mdi:valve-open", category="diagnostic"),
+    EntitySpec("bypass_close_relay", "binary_sensor", "Bypass motor closing", "Bypass motor lukker", "running", icon="mdi:valve-closed", category="diagnostic"),
     EntitySpec("defrost", "binary_sensor", "Defrost", "Afrimning", icon="mdi:snowflake"),
     EntitySpec("user_function", "binary_sensor", "User function active", "Brugerfunktion aktiv", icon="mdi:timer-outline"),
     EntitySpec("preheater", "binary_sensor", "Preheater active", "Forvarme aktiv", when="preheater", icon="mdi:heating-coil"),
