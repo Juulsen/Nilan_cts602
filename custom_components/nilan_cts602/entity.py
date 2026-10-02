@@ -7,7 +7,7 @@ from typing import Any
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_PROTOCOL, CONF_SW_VERSION, DOMAIN, MANUFACTURER, MODEL
+from .const import CONF_DEVICE_ID, CONF_PROTOCOL, CONF_SW_VERSION, DOMAIN, MANUFACTURER, MODEL
 from .coordinator import NilanDataUpdateCoordinator
 from .plant import ROOM_SOURCE_NOTE_DA, ROOM_SOURCE_NOTE_EN, normalize_plant
 
@@ -59,6 +59,7 @@ class NilanEntity(CoordinatorEntity[NilanDataUpdateCoordinator]):
         attributes["register_key"] = self._key
         attributes["protocol_version"] = data.get("protocol", self._entry.data.get(CONF_PROTOCOL))
         attributes["sw_version"] = data.get("sw_version", self._entry.data.get(CONF_SW_VERSION))
+        attributes["slave_id"] = self._entry.data.get(CONF_DEVICE_ID)
         if self._key == "room_temperature":
             attributes["note_en"] = ROOM_SOURCE_NOTE_EN
             attributes["note_da"] = ROOM_SOURCE_NOTE_DA
