@@ -1,5 +1,5 @@
-/* Nilan CTS602 dashboard. Read-only in 0.1.1. No external card dependencies. */
-const NILAN_VERSION = '0.1.1';
+/* Nilan CTS602 dashboard. Read-only in 0.2.0. No external card dependencies. */
+const NILAN_VERSION = '0.2.0';
 const NILAN_STATIC = '/nilan_cts602-static/';
 
 async function nilanLoadLibs() {
@@ -222,7 +222,7 @@ class NilanCard extends HTMLElement {
     if (this.tab === 'filter') this.filter(card);
     if (this.tab === 'settings') this.settings(card);
     const foot = el('div', undefined, 'footer');
-    foot.append(el('span', this.tr('Kun læsning i 0.1.1. Tryk på grafen for værdier.', 'Read-only in 0.1.1. Tap the chart for values.')));
+    foot.append(el('span', this.tr('Kun læsning i 0.2.0. Tryk på grafen for værdier.', 'Read-only in 0.2.0. Tap the chart for values.')));
     foot.append(el('span', `Juulsen · ${NILAN_VERSION}`));
     card.append(foot);
     this.ensureHistory();
@@ -283,6 +283,10 @@ class NilanCard extends HTMLElement {
     if (this.viewMode() === 'graphic') {
       const box = el('div', undefined, 'diagram');
       if (globalThis.NilanDiagram) box.innerHTML = NilanDiagram.markup(this.resolvedPlant(), this.diagramValues());
+      box.addEventListener('click', (event) => {
+        const node = event.target.closest?.('[data-sensor]');
+        if (node) this.moreInfo(node.getAttribute('data-sensor'));
+      });
       card.append(box);
       this.chips(card);
     } else {
@@ -319,20 +323,33 @@ class NilanCard extends HTMLElement {
   }
   diagramValues() {
     const bypass = this.bypassPosition();
+    const days = this.num('filter_days_left');
+    const pct = (key) => (this.num(key) == null ? '' : this.fmt(this.num(key), 0, '%'));
+    const step = (key) => (this.num(key) == null ? '' : this.tr(`trin ${this.fmt(this.num(key), 0)}`, `step ${this.fmt(this.num(key), 0)}`));
     return {
+      running: this.on('running'),
       t8: this.fmt(this.num('t8_outdoor'), 1, '°C'),
       t3: this.fmt(this.num('t3_extract'), 1, '°C'),
       t7: this.fmt(this.num('t7_supply'), 1, '°C'),
       t4: this.fmt(this.num('t4_exhaust'), 1, '°C'),
-      supplyPct: this.fmt(this.num('supply_fan_speed'), 0, '%'),
-      extractPct: this.fmt(this.num('extract_fan_speed'), 0, '%'),
-      bypass,
-      bypassLabel: bypass === 'open' ? this.tr('Bypass åben', 'Bypass open') : bypass === 'closed' ? this.tr('Bypass lukket', 'Bypass closed') : this.tr('Bypass ukendt', 'Bypass unknown'),
+      t15: this.find('t15_panel') ? this.fmt(this.num('t15_panel'), 1, '°C') : '',
+      room: this.fmt(this.num('room_temperature'), 1, '°C'),
+      efficiency: this.fmt(this.num('efficiency'), 1, '%'),
+      supplyPct: pct('supply_fan_speed'),
+      extractPct: pct('extract_fan_speed'),
+      supplyStep: step('supply_fan_step'),
+      extractStep: step('extract_fan_step'),
+      filterDays: days == null ? '' : this.fmt(days, 0, 'd'),
       filterAlarm: this.on('filter'),
-      outdoorTitle: this.tr('Ude', 'Outdoor'),
-      supplyTitle: this.tr('Indblæs', 'Supply'),
-      extractTitle: this.tr('Udsug', 'Extract'),
-      exhaustTitle: this.tr('Afkast', 'Exhaust'),
+      bypass,
+      bypassShort: bypass === 'open' ? this.tr('åben', 'open') : bypass === 'closed' ? this.tr('lukket', 'closed') : this.tr('ukendt', 'unknown'),
+      outdoorTitle: this.tr('T8 Udeluft', 'T8 Outdoor'),
+      supplyTitle: this.tr('T7 Indblæs', 'T7 Supply'),
+      extractTitle: this.tr('T3 Udsug', 'T3 Extract'),
+      exhaustTitle: this.tr('T4 Afkast', 'T4 Exhaust'),
+      t15Title: this.tr('T15 Panel', 'T15 Panel'),
+      roomTitle: this.tr('Rum', 'Room'),
+      efficiencyTitle: this.tr('Varmegenvinding', 'Heat recovery'),
       house: this.tr('Bolig', 'Home'),
     };
   }
@@ -468,7 +485,7 @@ class NilanCard extends HTMLElement {
     return tile;
   }
   settings(card) {
-    card.append(el('p', this.tr('Version 0.1.1 skriver ikke til regulatoren. Tallene er de aktuelle indstillinger.', 'Version 0.1.1 does not write to the controller. These are the current settings.'), 'muted'));
+    card.append(el('p', this.tr('Version 0.2.0 skriver ikke til regulatoren. Tallene er de aktuelle indstillinger.', 'Version 0.2.0 does not write to the controller. These are the current settings.'), 'muted'));
     for (const key of NILAN_SETTINGS) {
       const match = this.find(key);
       if (!match) continue;
@@ -580,7 +597,8 @@ button{cursor:pointer}
 nav button.active{box-shadow:inset 0 -2px 0 var(--nilan-accent)}
 .primary{background:var(--nilan-accent);color:#04221c;border-color:transparent}
 .diagram{border-radius:16px;overflow:hidden;background:var(--nilan-chip);margin-bottom:8px}
-.diagram svg,.history svg{display:block;width:100%;height:auto;max-height:280px}
+.diagram svg{display:block;width:min(100%,760px);height:auto;margin-inline:auto}
+.history svg{display:block;width:100%;height:auto;max-height:220px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--nilan-line);border-radius:999px;padding:4px 8px;font-size:12px}
 .dot{width:7px;height:7px;border-radius:50%;background:#9aa6b5;display:inline-block}
