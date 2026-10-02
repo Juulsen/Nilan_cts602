@@ -17,6 +17,13 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # The integration token cannot set repository metadata. Remove this
+          # ignore after the GitHub description and topics below are saved:
+          # description: Home Assistant integration for Nilan Comfort 300 LR
+          #   with CTS602: local Modbus, temperatures, filter, alarms and a
+          #   cross-flow dashboard. Community project by Juulsen, under active testing.
+          # topics: home-assistant hacs custom-integration modbus nilan cts602
+          ignore: description topics
   hassfest:
     name: Hassfest
     runs-on: ubuntu-latest
