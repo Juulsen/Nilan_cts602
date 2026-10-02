@@ -17,6 +17,11 @@ assert.match(cardSource, /Overblik/);
 assert.match(cardSource, /Alarmer/);
 assert.match(cardSource, /Filter/);
 assert.match(cardSource, /Indstillinger/);
+assert.match(cardSource, /protokol /);
+assert.match(cardSource, /Bypass lukket/);
+assert.match(cardSource, /Bypass åben/);
+assert.doesNotMatch(cardSource, /bus \$\{protocol\}/);
+assert.doesNotMatch(cardSource, /'Veksler'/);
 assert.match(cardSource, /nilan_cts602\/plant\/set/);
 assert.match(cardSource, /confirm\(/);
 for (const file of ['nilan-card.js', 'nilan-plant.js', 'nilan-diagram.js', 'nilan-chart.js', 'nilan-wizard.js']) {
@@ -63,6 +68,24 @@ const fitted = context.NilanDiagram.markup({ preheater: true, reheater: 'electri
 assert.match(fitted, /data-part="preheater"/);
 assert.match(fitted, /data-part="reheater"/);
 assert.match(fitted, /data-state="open"/);
+assert.match(bare, /data-part="house"/);
+assert.match(bare, /data-flow="outdoor"/);
+assert.match(bare, /data-flow="supply"/);
+assert.match(bare, /data-flow="extract"/);
+assert.match(bare, /data-flow="exhaust"/);
+assert.match(bare, /marker-end="url\(#nilan-arrow-/);
+const viewBox = bare.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+assert.ok(viewBox);
+const boxW = Number(viewBox[1]);
+const boxH = Number(viewBox[2]);
+for (const match of bare.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)) {
+  const attrs = match[1];
+  const label = match[2];
+  const x = Number((attrs.match(/\bx="([^"]+)"/) || [])[1]);
+  const y = Number((attrs.match(/\by="([^"]+)"/) || [])[1]);
+  assert.ok(x >= 4 && x <= boxW - 4, `${label} x=${x} leaves the diagram`);
+  assert.ok(y >= 8 && y <= boxH - 2, `${label} y=${y} leaves the diagram`);
+}
 
 assert.equal(context.NilanChart.legendLine('Ude', 12.3, '°C', true), 'Ude 12,3 °C');
 assert.equal(context.NilanChart.legendLine('Outdoor', 12.3, '°C', false), 'Outdoor 12.3 °C');
@@ -73,19 +96,17 @@ const series = [
   { id: 't7_supply', name: 'Indblæs', unit: '°C', points: [[now - 3600000, 18], [now, 19.2]] },
   { id: 't4_exhaust', name: 'Afkast', unit: '°C', points: [[now - 3600000, 14], [now, 15.4]] },
 ];
-const svg = context.NilanChart.history(series, { comma: true });
+const svg = context.NilanChart.history(series, { comma: true, maxLabel: 'Maks' });
 assert.match(svg, /data-chart="history"/);
 assert.match(svg, /data-series="t8_outdoor"/);
-assert.match(svg, /data-top="1"/);
-assert.match(svg, /22,5|12,3|19,2|15,4/);
+assert.match(svg, /data-top="1"[^>]*>Maks Udsug 22,5 °C</);
 const hit = context.NilanChart.nearest(series, 1);
 assert.equal(hit.rows.length, 4);
 const tip = context.NilanChart.tooltipText(hit, true);
 for (const name of ['Ude', 'Udsug', 'Indblæs', 'Afkast']) assert.match(tip, new RegExp(name));
 assert.match(tip, /,/);
-const efficiency = context.NilanChart.history([{ id: 'efficiency', name: 'Afkastside', unit: '%', points: [[now - 1000, 20], [now, 25.5]] }], { comma: true });
-assert.match(efficiency, /data-top="1"/);
-assert.match(efficiency, /25,5/);
+const efficiency = context.NilanChart.history([{ id: 'efficiency', name: 'Afkastside', unit: '%', points: [[now - 1000, 20], [now, 25.5]] }], { comma: true, maxLabel: 'Maks' });
+assert.match(efficiency, /data-top="1"[^>]*>Maks Afkastside 25,5 %</);
 
 const Card = definitions.get('nilan-cts602-card');
 const card = new Card();

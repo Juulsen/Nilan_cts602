@@ -1,5 +1,5 @@
-/* Nilan CTS602 dashboard. Read-only in 0.1.0. No external card dependencies. */
-const NILAN_VERSION = '0.1.0';
+/* Nilan CTS602 dashboard. Read-only in 0.1.1. No external card dependencies. */
+const NILAN_VERSION = '0.1.1';
 const NILAN_STATIC = '/nilan_cts602-static/';
 
 async function nilanLoadLibs() {
@@ -222,7 +222,7 @@ class NilanCard extends HTMLElement {
     if (this.tab === 'filter') this.filter(card);
     if (this.tab === 'settings') this.settings(card);
     const foot = el('div', undefined, 'footer');
-    foot.append(el('span', this.tr('Kun læsning i 0.1.0. Tryk på grafen for værdier.', 'Read-only in 0.1.0. Tap the chart for values.')));
+    foot.append(el('span', this.tr('Kun læsning i 0.1.1. Tryk på grafen for værdier.', 'Read-only in 0.1.1. Tap the chart for values.')));
     foot.append(el('span', `Juulsen · ${NILAN_VERSION}`));
     card.append(foot);
     this.ensureHistory();
@@ -236,7 +236,17 @@ class NilanCard extends HTMLElement {
     const sample = this.entities()[0]?.[1];
     const sw = sample?.attributes.sw_version || '';
     const protocol = sample?.attributes.protocol_version;
-    titles.append(el('small', `CTS602${sw ? ` · ${sw}` : ''}${protocol != null ? ` · bus ${protocol}` : ''}`));
+    const slave = sample?.attributes.slave_id;
+    const sub = el('small');
+    sub.append(document.createTextNode(`CTS602${sw ? ` · ${sw}` : ''}`));
+    const detail = [];
+    if (protocol != null && protocol !== '') detail.push(this.tr(`protokol ${protocol}`, `protocol ${protocol}`));
+    if (slave != null && slave !== '') detail.push(this.tr(`slave ${slave}`, `slave ${slave}`));
+    if (detail.length) {
+      sub.append(document.createElement('br'));
+      sub.append(document.createTextNode(detail.join(' · ')));
+    }
+    titles.append(sub);
     brand.append(titles);
     head.append(brand);
     const tools = el('div', undefined, 'head-tools');
@@ -339,7 +349,12 @@ class NilanCard extends HTMLElement {
     row.append(this.chip(this.on('running') ? 'ok' : 'idle', this.on('running') ? this.tr('Kører', 'Running') : this.tr('Stoppet', 'Stopped')));
     row.append(this.chip(this.on('summer') ? 'info' : 'idle', this.on('summer') ? this.tr('Sommer', 'Summer') : this.tr('Vinter', 'Winter')));
     const bypass = this.bypassPosition();
-    row.append(this.chip(bypass === 'open' ? 'warn' : 'idle', bypass === 'open' ? this.tr('Bypass', 'Bypass') : this.tr('Veksler', 'Exchanger')));
+    const bypassText = bypass === 'open'
+      ? this.tr('Bypass åben', 'Bypass open')
+      : bypass === 'closed'
+        ? this.tr('Bypass lukket', 'Bypass closed')
+        : this.tr('Bypass ukendt', 'Bypass unknown');
+    row.append(this.chip(bypass === 'open' ? 'warn' : bypass === 'closed' ? 'ok' : 'idle', bypassText));
     row.append(this.chip(this.on('filter') ? 'warn' : 'ok', this.on('filter') ? this.tr('Filter', 'Filter') : this.tr('Filter ok', 'Filter ok')));
     if (this.on('defrost')) row.append(this.chip('info', this.tr('Afrimning', 'Defrost')));
     if (this.on('user_function')) row.append(this.chip('info', this.tr('Brugerfunktion', 'User function')));
@@ -380,6 +395,7 @@ class NilanCard extends HTMLElement {
     const host = el('div', undefined, 'history');
     host.innerHTML = NilanChart.history(series, {
       comma: this.comma(),
+      maxLabel: this.tr('Maks', 'Max'),
       empty: this.tr('Ingen historik endnu. Den kommer, når Home Assistant har optaget målingerne.', 'No history yet. It appears after Home Assistant has recorded the sensors.'),
     });
     const tip = el('div', '', 'tip');
@@ -395,8 +411,9 @@ class NilanCard extends HTMLElement {
       tip.textContent = text;
       tip.style.left = `${Math.max(0, Math.min(width - 140, event.clientX - host.getBoundingClientRect().left))}px`;
       const cursor = host.querySelector('[data-cursor]');
-      if (cursor) {
-        const x = 36 + ratio * 312;
+      const plot = host.querySelector('[data-plot-x]');
+      if (cursor && plot) {
+        const x = Number(plot.getAttribute('data-plot-x')) + ratio * Number(plot.getAttribute('data-plot-w'));
         cursor.setAttribute('x1', String(x));
         cursor.setAttribute('x2', String(x));
         cursor.setAttribute('visibility', 'visible');
@@ -451,7 +468,7 @@ class NilanCard extends HTMLElement {
     return tile;
   }
   settings(card) {
-    card.append(el('p', this.tr('Version 0.1.0 skriver ikke til regulatoren. Tallene er de aktuelle indstillinger.', 'Version 0.1.0 does not write to the controller. These are the current settings.'), 'muted'));
+    card.append(el('p', this.tr('Version 0.1.1 skriver ikke til regulatoren. Tallene er de aktuelle indstillinger.', 'Version 0.1.1 does not write to the controller. These are the current settings.'), 'muted'));
     for (const key of NILAN_SETTINGS) {
       const match = this.find(key);
       if (!match) continue;

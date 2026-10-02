@@ -9,7 +9,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "nilan_cts602"
 NAME: Final = "Nilan CTS602"
-VERSION: Final = "0.1.0"
+VERSION: Final = "0.1.1"
 MANUFACTURER: Final = "Nilan"
 MODEL: Final = "Comfort 300 LR"
 INTEGRATION_AUTHOR: Final = "Juulsen"

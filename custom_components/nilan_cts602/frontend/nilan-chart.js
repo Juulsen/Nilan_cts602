@@ -68,8 +68,8 @@
   function history(series, opts) {
     const comma = !!opts?.comma;
     const W = 360;
-    const H = 168;
-    const box = { l: 36, t: 18, w: 312, h: 112 };
+    const H = 186;
+    const box = { l: 36, t: 30, w: 312, h: 112 };
     const flat = (series || []).flatMap((item) => finitePoints(item.points));
     const now = Date.now();
     const minX = flat.length ? Math.min(...flat.map((point) => point[0])) : now - 86400000;
@@ -106,14 +106,16 @@
     }).join('');
     let peak = '';
     if (topPoint) {
+      const item = (series || []).find((row) => row.id === topId) || {};
       const label = num(topPoint[1], 1, comma);
+      const unit = item.unit ? ` ${item.unit}` : '';
+      const prefix = opts?.maxLabel || 'Max';
+      const caption = `${prefix} ${item.name || ''} ${label}${unit}`.replace(/\s+/g, ' ').trim();
       const x = sx(topPoint[0]);
-      const y = Math.max(12, sy(topPoint[1]) - 6);
-      const anchor = x > box.l + box.w * 0.7 ? 'end' : 'start';
-      peak = `<circle data-series="${esc(topId)}" cx="${x.toFixed(1)}" cy="${sy(topPoint[1]).toFixed(1)}" r="3.2" fill="${color(topId)}"/><text data-top="1" x="${(anchor === 'end' ? x - 6 : x + 6).toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" fill="var(--nilan-fg,#e8eef6)" font-size="11">${esc(label)}</text>`;
+      peak = `<circle data-series="${esc(topId)}" cx="${x.toFixed(1)}" cy="${sy(topPoint[1]).toFixed(1)}" r="3.2" fill="${color(topId)}"/><text data-top="1" x="${W / 2}" y="14" text-anchor="middle" fill="var(--nilan-fg,#e8eef6)" font-size="11">${esc(caption)}</text>`;
     }
     const empty = flat.length ? '' : `<text x="${box.l + box.w / 2}" y="${box.t + box.h / 2}" text-anchor="middle" fill="var(--nilan-muted,#93a0b0)" font-size="12">${esc(opts?.empty || '')}</text>`;
-    return `<svg viewBox="0 0 ${W} ${H}" width="100%" data-chart="history" role="img">
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" data-chart="history" data-plot-x="${box.l}" data-plot-w="${box.w}" role="img">
       <style>text{font-family:var(--nilan-font,Roboto,ui-sans-serif,system-ui,sans-serif)}</style>
       ${grid}${yLabels}${xLabels}${lines}${peak}${empty}
       <line data-cursor="1" x1="${box.l}" x2="${box.l}" y1="${box.t}" y2="${box.t + box.h}" stroke="var(--nilan-fg,#fff)" stroke-opacity="0.35" visibility="hidden"/>
