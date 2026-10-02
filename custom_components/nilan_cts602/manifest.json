@@ -1,0 +1,14 @@
+{
+  "domain": "nilan_cts602",
+  "name": "Nilan CTS602",
+  "codeowners": ["@Juulsen"],
+  "config_flow": true,
+  "dependencies": ["http"],
+  "documentation": "https://github.com/Juulsen/Nilan_cts602",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/Juulsen/Nilan_cts602/issues",
+  "loggers": ["pymodbus"],
+  "requirements": ["pymodbus>=3.13.1", "pyserial>=3.5"],
+  "version": "0.1.0"
+}

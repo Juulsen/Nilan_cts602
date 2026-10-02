@@ -1,0 +1,48 @@
+name: Validate
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  hacs:
+    name: HACS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: integration
+          # The integration token cannot set repository metadata. Remove this
+          # ignore after the GitHub description and topics below are saved:
+          # description: Home Assistant integration for Nilan Comfort 300 LR
+          #   with CTS602: local Modbus, temperatures, filter, alarms and a
+          #   cross-flow dashboard. Community project by Juulsen, under active testing.
+          # topics: home-assistant hacs custom-integration modbus nilan cts602
+          ignore: description topics
+  hassfest:
+    name: Hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+  tests:
+    name: Unit and frontend contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python -m pip install "pymodbus>=3.13.1" "pyserial>=3.5"
+      - run: python -m unittest discover -s tests -v
+      - run: python -m compileall -q custom_components
+      - run: node --check custom_components/nilan_cts602/frontend/nilan-card.js && node --check custom_components/nilan_cts602/frontend/nilan-plant.js && node --check custom_components/nilan_cts602/frontend/nilan-diagram.js && node --check custom_components/nilan_cts602/frontend/nilan-chart.js && node --check custom_components/nilan_cts602/frontend/nilan-wizard.js
+      - run: node tests/test_frontend_contracts.cjs

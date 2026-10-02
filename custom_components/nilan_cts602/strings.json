@@ -1,0 +1,642 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "This gateway and Modbus slave are already configured.",
+      "reconfigure_successful": "The Nilan CTS602 connection was updated."
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to the gateway or serial port.",
+      "cannot_read": "The controller did not answer the identification read. Check the slave ID. The ECL110 on the same gateway uses a different slave.",
+      "unsupported_model": "The slave answered with model type {model_type}. This integration only supports Nilan Comfort (type 13).",
+      "modbus_error": "The controller returned a Modbus error.",
+      "unknown": "Unexpected error. See the Home Assistant log.",
+      "host_required": "Host is required for Modbus TCP and RTU over TCP.",
+      "serial_required": "Serial port is required for a direct RS485 connection."
+    },
+    "step": {
+      "user": {
+        "title": "Connect to Nilan Comfort",
+        "description": "Read-only setup. The integration reads model type, protocol and software, and refuses anything other than Comfort (type 13). Nothing is written to the controller. The bus is shared, so the default poll is 30 seconds with a pause between frames. If this is the same gateway as the ECL110 integration, choose Modbus TCP. Disable the old nilan integration and any YAML modbus sensors on this slave first.",
+        "data": {
+          "connection": "Connection",
+          "host": "Host or IP address",
+          "port": "TCP port",
+          "serial_port": "Serial port",
+          "device_id": "Modbus slave ID",
+          "scan_interval": "Update interval",
+          "timeout": "Communication timeout",
+          "request_delay": "Pause between frames"
+        },
+        "data_description": {
+          "connection": "Modbus TCP matches the gateway type used by the ECL110 integration. RTU over TCP is a transparent RS485 gateway. Serial is fixed at 19200 8E1.",
+          "host": "IP address of the RS485 gateway. Leave it empty for a direct serial connection.",
+          "port": "Modbus TCP port, normally 502.",
+          "serial_port": "For example /dev/ttyUSB0. Used only for a direct RS485 connection.",
+          "device_id": "CTS602 address on the RS485 bus. This unit uses 10. The ECL110 on the same gateway has a different address.",
+          "scan_interval": "Seconds between updates. Minimum 10. 30 is a sane choice on a shared bus.",
+          "timeout": "Seconds to wait for a connection or a Modbus response.",
+          "request_delay": "Seconds to wait after every frame so the gateway is not hammered. Minimum 0.05."
+        }
+      },
+      "reconfigure": {
+        "title": "Change connection",
+        "description": "The connection is tested again, and model type 13 must still answer. Change the plant under Configure, not here.",
+        "data": {
+          "connection": "Connection",
+          "host": "Host or IP address",
+          "port": "TCP port",
+          "serial_port": "Serial port",
+          "device_id": "Modbus slave ID",
+          "scan_interval": "Update interval",
+          "timeout": "Communication timeout",
+          "request_delay": "Pause between frames"
+        },
+        "data_description": {
+          "connection": "Modbus TCP matches the gateway type used by the ECL110 integration. RTU over TCP is a transparent RS485 gateway. Serial is fixed at 19200 8E1.",
+          "host": "IP address of the RS485 gateway. Leave it empty for a direct serial connection.",
+          "port": "Modbus TCP port, normally 502.",
+          "serial_port": "For example /dev/ttyUSB0. Used only for a direct RS485 connection.",
+          "device_id": "CTS602 address on the RS485 bus. This unit uses 10. The ECL110 on the same gateway has a different address.",
+          "scan_interval": "Seconds between updates. Minimum 10. 30 is a sane choice on a shared bus.",
+          "timeout": "Seconds to wait for a connection or a Modbus response.",
+          "request_delay": "Seconds to wait after every frame so the gateway is not hammered. Minimum 0.05."
+        }
+      },
+      "equipment": {
+        "title": "Plant",
+        "description": "The controller answered as {model}, software {software}, protocol {protocol}. Preheater, reheater, CO₂ and T10 decide which entities are created. Hardware that is not fitted is not created.",
+        "data": {
+          "preheater": "Preheater fitted",
+          "reheater": "Reheater",
+          "co2": "CO₂ sensor fitted",
+          "t10": "T10 fitted"
+        },
+        "data_description": {
+          "preheater": "Off by default. A preheater entity is created only when one is fitted.",
+          "reheater": "None, electric or water. None is the default. Water uses the heating surface (T9).",
+          "co2": "The CO₂ entity is created only when the sensor is fitted.",
+          "t10": "T10 is on the control board inside the unit. It is not the living-room temperature."
+        }
+      },
+      "room": {
+        "title": "Room temperature",
+        "description": "The CTS602 cannot accept an external temperature sensor over Modbus. T15 is the user panel and T10 is on the control board. On this installation the panel is in the loft next to the unit, so T15 is not the room temperature. The choice is only used for display and later Home Assistant logic.",
+        "data": {
+          "room_source": "Room temperature source",
+          "room_entity": "Home Assistant temperature entity"
+        },
+        "data_description": {
+          "room_source": "Choose T15, T10 or an existing temperature entity. The entity is not written to the controller.",
+          "room_entity": "Used only when the source is a Home Assistant entity."
+        }
+      }
+    }
+  },
+  "selector": {
+    "connection": {
+      "options": {
+        "modbus_tcp": "Modbus TCP (same gateway type as ECL110)",
+        "rtu_over_tcp": "RTU over TCP (transparent gateway)",
+        "serial": "Serial RS485, 19200 8E1"
+      }
+    },
+    "reheater": {
+      "options": {
+        "none": "None",
+        "electric": "Electric",
+        "water": "Water"
+      }
+    },
+    "room_source": {
+      "options": {
+        "t15": "T15 user panel (not necessarily the room)",
+        "t10": "T10 on the control board (inside the unit)",
+        "entity": "Home Assistant temperature entity"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "t0_controller": {
+        "name": "Controller board (T0)"
+      },
+      "t2_inlet": {
+        "name": "Inlet before heater (T2)"
+      },
+      "t3_extract": {
+        "name": "Extract air (T3)"
+      },
+      "t4_exhaust": {
+        "name": "Exhaust air (T4)"
+      },
+      "t7_supply": {
+        "name": "Supply air (T7)"
+      },
+      "t8_outdoor": {
+        "name": "Outdoor air (T8)"
+      },
+      "t9_heater": {
+        "name": "Heating surface (T9)"
+      },
+      "t10_external": {
+        "name": "External sensor (T10)"
+      },
+      "t15_panel": {
+        "name": "Panel temperature (T15)"
+      },
+      "humidity": {
+        "name": "Humidity"
+      },
+      "co2": {
+        "name": "CO₂"
+      },
+      "control_state": {
+        "name": "Control state",
+        "state": {
+          "off": "Off",
+          "shift": "Shift",
+          "stop": "Stop",
+          "start": "Start",
+          "standby": "Standby",
+          "ventilation_stop": "Ventilation stopped",
+          "ventilation": "Ventilation",
+          "heating": "Heating",
+          "cooling": "Cooling",
+          "hot_water": "Hot water",
+          "legionella": "Legionella",
+          "cooling_hot_water": "Cooling and hot water",
+          "central_heating": "Central heating",
+          "defrost": "Defrost",
+          "frost_secure": "Frost protection",
+          "service": "Service",
+          "alarm": "Alarm",
+          "unknown": "Unknown"
+        }
+      },
+      "operation_mode": {
+        "name": "Operation mode",
+        "state": {
+          "off": "Off",
+          "heat": "Heat",
+          "cool": "Cool",
+          "auto": "Auto",
+          "service": "Service",
+          "unknown": "Unknown"
+        }
+      },
+      "supply_setpoint": {
+        "name": "Supply setpoint"
+      },
+      "supply_fan_speed": {
+        "name": "Supply fan"
+      },
+      "extract_fan_speed": {
+        "name": "Extract fan"
+      },
+      "fan_step": {
+        "name": "Actual fan step"
+      },
+      "supply_fan_step": {
+        "name": "Supply fan step"
+      },
+      "extract_fan_step": {
+        "name": "Extract fan step"
+      },
+      "filter_days_since": {
+        "name": "Days since filter change"
+      },
+      "filter_days_left": {
+        "name": "Days to filter change"
+      },
+      "alarm_count": {
+        "name": "Alarm count"
+      },
+      "alarm_1": {
+        "name": "Alarm 1",
+        "state": {
+          "none": "No alarm",
+          "hardware": "Hardware",
+          "timeout": "Timeout",
+          "fire": "Fire thermostat",
+          "pressure": "Pressure switch",
+          "door": "Door open",
+          "defrost_timeout": "Defrost time",
+          "frost": "Frost",
+          "frost_thermostat": "Frost thermostat",
+          "overtemp": "Over temperature",
+          "overheat": "Reheater overheat",
+          "airflow": "Airflow",
+          "thermo": "Motor thermal",
+          "boiling": "Boiling",
+          "sensor": "Control sensor",
+          "room_low": "Room low",
+          "software": "Startup",
+          "watchdog": "Watchdog",
+          "config": "Configuration",
+          "filter": "Filter",
+          "legionella": "Legionella",
+          "power": "Power failure",
+          "air_temperature": "Air temperature",
+          "water_temperature": "Water temperature",
+          "heat_temperature": "Heating temperature",
+          "modem": "Modem",
+          "network": "Network",
+          "t1_short": "T1 shorted",
+          "t1_open": "T1 open",
+          "t2_short": "T2 shorted",
+          "t2_open": "T2 open",
+          "t3_short": "T3 shorted",
+          "t3_open": "T3 open",
+          "t4_short": "T4 shorted",
+          "t4_open": "T4 open",
+          "t5_short": "T5 shorted",
+          "t5_open": "T5 open",
+          "t6_short": "T6 shorted",
+          "t6_open": "T6 open",
+          "t7_short": "T7 shorted",
+          "t7_open": "T7 open",
+          "t8_short": "T8 shorted",
+          "t8_open": "T8 open",
+          "t9_short": "T9 shorted",
+          "t9_open": "T9 open",
+          "t10_short": "T10 shorted",
+          "t10_open": "T10 open",
+          "t11_short": "T11 shorted",
+          "t11_open": "T11 open",
+          "t12_short": "T12 shorted",
+          "t12_open": "T12 open",
+          "t13_short": "T13 shorted",
+          "t13_open": "T13 open",
+          "t14_short": "T14 shorted",
+          "t14_open": "T14 open",
+          "t15_short": "T15 shorted",
+          "t15_open": "T15 open",
+          "t16_short": "T16 shorted",
+          "t16_open": "T16 open",
+          "anode": "Anode",
+          "exchanger_defrost": "Exchanger defrost",
+          "slave_io": "Slave I/O",
+          "option_module": "Option module",
+          "preset": "Preset",
+          "software_rejected": "Software rejected",
+          "unknown": "Unknown alarm"
+        }
+      },
+      "alarm_2": {
+        "name": "Alarm 2",
+        "state": {
+          "none": "No alarm",
+          "hardware": "Hardware",
+          "timeout": "Timeout",
+          "fire": "Fire thermostat",
+          "pressure": "Pressure switch",
+          "door": "Door open",
+          "defrost_timeout": "Defrost time",
+          "frost": "Frost",
+          "frost_thermostat": "Frost thermostat",
+          "overtemp": "Over temperature",
+          "overheat": "Reheater overheat",
+          "airflow": "Airflow",
+          "thermo": "Motor thermal",
+          "boiling": "Boiling",
+          "sensor": "Control sensor",
+          "room_low": "Room low",
+          "software": "Startup",
+          "watchdog": "Watchdog",
+          "config": "Configuration",
+          "filter": "Filter",
+          "legionella": "Legionella",
+          "power": "Power failure",
+          "air_temperature": "Air temperature",
+          "water_temperature": "Water temperature",
+          "heat_temperature": "Heating temperature",
+          "modem": "Modem",
+          "network": "Network",
+          "t1_short": "T1 shorted",
+          "t1_open": "T1 open",
+          "t2_short": "T2 shorted",
+          "t2_open": "T2 open",
+          "t3_short": "T3 shorted",
+          "t3_open": "T3 open",
+          "t4_short": "T4 shorted",
+          "t4_open": "T4 open",
+          "t5_short": "T5 shorted",
+          "t5_open": "T5 open",
+          "t6_short": "T6 shorted",
+          "t6_open": "T6 open",
+          "t7_short": "T7 shorted",
+          "t7_open": "T7 open",
+          "t8_short": "T8 shorted",
+          "t8_open": "T8 open",
+          "t9_short": "T9 shorted",
+          "t9_open": "T9 open",
+          "t10_short": "T10 shorted",
+          "t10_open": "T10 open",
+          "t11_short": "T11 shorted",
+          "t11_open": "T11 open",
+          "t12_short": "T12 shorted",
+          "t12_open": "T12 open",
+          "t13_short": "T13 shorted",
+          "t13_open": "T13 open",
+          "t14_short": "T14 shorted",
+          "t14_open": "T14 open",
+          "t15_short": "T15 shorted",
+          "t15_open": "T15 open",
+          "t16_short": "T16 shorted",
+          "t16_open": "T16 open",
+          "anode": "Anode",
+          "exchanger_defrost": "Exchanger defrost",
+          "slave_io": "Slave I/O",
+          "option_module": "Option module",
+          "preset": "Preset",
+          "software_rejected": "Software rejected",
+          "unknown": "Unknown alarm"
+        }
+      },
+      "alarm_3": {
+        "name": "Alarm 3",
+        "state": {
+          "none": "No alarm",
+          "hardware": "Hardware",
+          "timeout": "Timeout",
+          "fire": "Fire thermostat",
+          "pressure": "Pressure switch",
+          "door": "Door open",
+          "defrost_timeout": "Defrost time",
+          "frost": "Frost",
+          "frost_thermostat": "Frost thermostat",
+          "overtemp": "Over temperature",
+          "overheat": "Reheater overheat",
+          "airflow": "Airflow",
+          "thermo": "Motor thermal",
+          "boiling": "Boiling",
+          "sensor": "Control sensor",
+          "room_low": "Room low",
+          "software": "Startup",
+          "watchdog": "Watchdog",
+          "config": "Configuration",
+          "filter": "Filter",
+          "legionella": "Legionella",
+          "power": "Power failure",
+          "air_temperature": "Air temperature",
+          "water_temperature": "Water temperature",
+          "heat_temperature": "Heating temperature",
+          "modem": "Modem",
+          "network": "Network",
+          "t1_short": "T1 shorted",
+          "t1_open": "T1 open",
+          "t2_short": "T2 shorted",
+          "t2_open": "T2 open",
+          "t3_short": "T3 shorted",
+          "t3_open": "T3 open",
+          "t4_short": "T4 shorted",
+          "t4_open": "T4 open",
+          "t5_short": "T5 shorted",
+          "t5_open": "T5 open",
+          "t6_short": "T6 shorted",
+          "t6_open": "T6 open",
+          "t7_short": "T7 shorted",
+          "t7_open": "T7 open",
+          "t8_short": "T8 shorted",
+          "t8_open": "T8 open",
+          "t9_short": "T9 shorted",
+          "t9_open": "T9 open",
+          "t10_short": "T10 shorted",
+          "t10_open": "T10 open",
+          "t11_short": "T11 shorted",
+          "t11_open": "T11 open",
+          "t12_short": "T12 shorted",
+          "t12_open": "T12 open",
+          "t13_short": "T13 shorted",
+          "t13_open": "T13 open",
+          "t14_short": "T14 shorted",
+          "t14_open": "T14 open",
+          "t15_short": "T15 shorted",
+          "t15_open": "T15 open",
+          "t16_short": "T16 shorted",
+          "t16_open": "T16 open",
+          "anode": "Anode",
+          "exchanger_defrost": "Exchanger defrost",
+          "slave_io": "Slave I/O",
+          "option_module": "Option module",
+          "preset": "Preset",
+          "software_rejected": "Software rejected",
+          "unknown": "Unknown alarm"
+        }
+      },
+      "controller_time": {
+        "name": "Controller clock"
+      },
+      "display_text": {
+        "name": "Panel display"
+      },
+      "efficiency": {
+        "name": "Heat recovery (exhaust side)"
+      },
+      "efficiency_controller": {
+        "name": "Heat recovery (controller)"
+      },
+      "room_temperature": {
+        "name": "Room temperature"
+      },
+      "controlled_temperature": {
+        "name": "Controlled temperature"
+      },
+      "controller_room_temperature": {
+        "name": "Controller room temperature"
+      },
+      "protocol_version": {
+        "name": "Protocol version"
+      },
+      "sw_version": {
+        "name": "Software version"
+      },
+      "reheater_capacity": {
+        "name": "Reheater capacity"
+      },
+      "set_run": {
+        "name": "Run setting",
+        "state": {
+          "off": "Off",
+          "on": "On",
+          "unknown": "Unknown"
+        }
+      },
+      "set_mode": {
+        "name": "Mode setting",
+        "state": {
+          "off": "Off",
+          "heat": "Heat",
+          "cool": "Cool",
+          "auto": "Auto",
+          "service": "Service",
+          "unknown": "Unknown"
+        }
+      },
+      "set_fan_step": {
+        "name": "Fan step setting"
+      },
+      "set_temperature": {
+        "name": "Temperature setpoint"
+      },
+      "supply_min_summer": {
+        "name": "Min supply summer"
+      },
+      "supply_min_winter": {
+        "name": "Min supply winter"
+      },
+      "supply_max_summer": {
+        "name": "Max supply summer"
+      },
+      "supply_max_winter": {
+        "name": "Max supply winter"
+      },
+      "summer_limit": {
+        "name": "Summer limit"
+      },
+      "night_cool_day_limit": {
+        "name": "Night cooling day limit"
+      },
+      "night_cool_setpoint": {
+        "name": "Night cooling setpoint"
+      },
+      "humidity_low_step": {
+        "name": "Low humidity fan step"
+      },
+      "humidity_high_step": {
+        "name": "High humidity fan step"
+      },
+      "humidity_limit": {
+        "name": "Humidity limit"
+      },
+      "humidity_high_time": {
+        "name": "Max high-humidity time"
+      },
+      "week_program": {
+        "name": "Week program",
+        "state": {
+          "none": "None",
+          "program_1": "Program 1",
+          "program_2": "Program 2",
+          "program_3": "Program 3",
+          "erase": "Erase",
+          "unknown": "Unknown"
+        }
+      },
+      "cooling_setpoint": {
+        "name": "Cooling setpoint",
+        "state": {
+          "off": "Off",
+          "plus_0": "Setpoint +0",
+          "plus_1": "Setpoint +1",
+          "plus_2": "Setpoint +2",
+          "plus_3": "Setpoint +3",
+          "plus_4": "Setpoint +4",
+          "plus_5": "Setpoint +5",
+          "plus_7": "Setpoint +7",
+          "plus_10": "Setpoint +10",
+          "unknown": "Unknown"
+        }
+      },
+      "cooling_fan_step": {
+        "name": "Cooling fan step"
+      },
+      "user_function_1_type": {
+        "name": "User function 1",
+        "state": {
+          "none": "None",
+          "extend": "Extend",
+          "inlet": "Inlet",
+          "exhaust": "Exhaust",
+          "external_heater_offset": "External heater offset",
+          "ventilate": "Ventilate",
+          "cooker_hood": "Cooker hood",
+          "unknown": "Unknown"
+        }
+      },
+      "user_function_2_type": {
+        "name": "User function 2",
+        "state": {
+          "none": "None",
+          "extend": "Extend",
+          "inlet": "Inlet",
+          "exhaust": "Exhaust",
+          "external_heater_offset": "External heater offset",
+          "ventilate": "Ventilate",
+          "cooker_hood": "Cooker hood",
+          "unknown": "Unknown"
+        }
+      },
+      "co2_high_step": {
+        "name": "CO₂ fan step"
+      },
+      "co2_limit_low": {
+        "name": "CO₂ normal limit"
+      },
+      "co2_limit_high": {
+        "name": "CO₂ high limit"
+      }
+    },
+    "binary_sensor": {
+      "running": {
+        "name": "Running"
+      },
+      "summer": {
+        "name": "Summer"
+      },
+      "alarm_active": {
+        "name": "Alarm active"
+      },
+      "filter": {
+        "name": "Filter alarm"
+      },
+      "bypass": {
+        "name": "Bypass open"
+      },
+      "defrost": {
+        "name": "Defrost"
+      },
+      "user_function": {
+        "name": "User function active"
+      },
+      "preheater": {
+        "name": "Preheater active"
+      },
+      "reheater": {
+        "name": "Reheater active"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "equipment": {
+        "title": "Plant",
+        "description": "The controller answered as {model}, software {software}, protocol {protocol}. Preheater, reheater, CO₂ and T10 decide which entities are created. Hardware that is not fitted is not created.",
+        "data": {
+          "preheater": "Preheater fitted",
+          "reheater": "Reheater",
+          "co2": "CO₂ sensor fitted",
+          "t10": "T10 fitted"
+        },
+        "data_description": {
+          "preheater": "Off by default. A preheater entity is created only when one is fitted.",
+          "reheater": "None, electric or water. None is the default. Water uses the heating surface (T9).",
+          "co2": "The CO₂ entity is created only when the sensor is fitted.",
+          "t10": "T10 is on the control board inside the unit. It is not the living-room temperature."
+        }
+      },
+      "room": {
+        "title": "Room temperature",
+        "description": "The CTS602 cannot accept an external temperature sensor over Modbus. T15 is the user panel and T10 is on the control board. On this installation the panel is in the loft next to the unit, so T15 is not the room temperature. The choice is only used for display and later Home Assistant logic.",
+        "data": {
+          "room_source": "Room temperature source",
+          "room_entity": "Home Assistant temperature entity"
+        },
+        "data_description": {
+          "room_source": "Choose T15, T10 or an existing temperature entity. The entity is not written to the controller.",
+          "room_entity": "Used only when the source is a Home Assistant entity."
+        }
+      }
+    }
+  }
+}
