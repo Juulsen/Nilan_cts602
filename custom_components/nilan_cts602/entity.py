@@ -64,6 +64,19 @@ class NilanEntity(CoordinatorEntity[NilanDataUpdateCoordinator]):
             attributes["note_en"] = ROOM_SOURCE_NOTE_EN
             attributes["note_da"] = ROOM_SOURCE_NOTE_DA
             attributes["source"] = plant_from_entry(self._entry).get("room_source")
+        if self._key == "t15_panel":
+            attributes["note_en"] = (
+                "T15 is input register 215, a signed word scaled by 0.01 °C, "
+                "the same register and scale as the CTS602 protocol and the veista integration. "
+                "It is the user-panel sensor. On this unit the panel is in the loft next to the ventilator, "
+                "so a reading around 30 °C is the loft, not the living room."
+            )
+            attributes["note_da"] = (
+                "T15 er inputregister 215, et fortegnsord skaleret med 0,01 °C, "
+                "samme register og skala som CTS602-protokollen og veista-integrationen. "
+                "Det er føleren i betjeningspanelet. På dette anlæg sidder panelet i loftet ved aggregatet, "
+                "så en måling omkring 30 °C er loftet og ikke stuen."
+            )
         return attributes
 
     @property

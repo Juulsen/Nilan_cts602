@@ -4,6 +4,15 @@ All notable changes to **Nilan CTS602** are documented in this file.
 
 The project follows [Semantic Versioning](https://semver.org/). During the pre-1.0 development phase, minor releases can add entities and dashboard behaviour while the hardware interface is being verified.
 
+## [0.3.0] - 2026-10-03
+
+- The overview is redrawn as a SCADA diagram: thick shaded ducts with elbows and flanges, animated flow in the bore, and a plate cross-flow exchanger. The exchanger is a beveled box with a rotated, hatched plate pack. The two air paths cross inside it and meet the ducts at the four corners.
+- Outdoor air is blue, supply air is orange, extract air is salmon and exhaust air is grey. Round fan housings show percent and step. Filters show the days remaining. Humidity sits on the extract side.
+- Bypass is a duct under the exchanger with a damper. The label is åben, lukket, seneste kendte, åbner… or lukker…. An unknown position has no label.
+- A status panel under the diagram shows operating state, fan step, setpoint, summer mode, alarms, filter life, bypass, room temperature and T15.
+- T15 is input register 215 scaled by 0.01 °C, the same register and scale as the CTS602 protocol and the veista integration. On this unit the panel is in the loft, so about 30 °C is that sensor and not the living room. The card and the entity say so. Preheater, reheater and T10 stay off the diagram unless they are fitted.
+- Still read-only. Dashboard resource: `/nilan_cts602-static/nilan-card.js?v=0.3.0`
+
 ## [0.2.1] - 2026-10-02
 
 - The options flow can save the equipment step. A change to preheater, reheater, CO₂ or T10 is kept when the room step is saved.

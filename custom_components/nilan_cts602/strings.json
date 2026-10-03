@@ -142,7 +142,7 @@
         "name": "External sensor (T10)"
       },
       "t15_panel": {
-        "name": "Panel temperature (T15)"
+        "name": "Loft panel (T15)"
       },
       "humidity": {
         "name": "Humidity"
