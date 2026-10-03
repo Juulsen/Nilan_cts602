@@ -73,8 +73,12 @@ const fitted = context.NilanDiagram.markup({ preheater: true, reheater: 'electri
 assert.match(fitted, /data-part="preheater"/);
 assert.match(fitted, /data-part="reheater"/);
 assert.match(fitted, /data-state="open"/);
-assert.match(bare, /data-diagram="scada"/);
+assert.match(bare, /data-diagram="hmi"/);
 assert.match(bare, /hx-hatch/);
+assert.match(bare, /hx-diamond/);
+assert.match(bare, /hx-path cold/);
+assert.match(bare, /hx-path warm/);
+assert.doesNotMatch(bare, /rotary|ROT1/);
 assert.match(bare, /class="flange"/);
 assert.match(bare, /data-sensor="humidity"/);
 assert.match(bare, /Udeluft/);
@@ -107,6 +111,15 @@ for (const match of bare.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)) {
   assert.ok(x >= 4 && x <= boxW - 4, `${label} x=${x} leaves the diagram`);
   assert.ok(y >= 8 && y <= boxH - 2, `${label} y=${y} leaves the diagram`);
 }
+const valueFont = Number((bare.match(/class="value-text" font-size="(\d+)"/) || [])[1]);
+assert.ok(valueFont * 390 / boxW >= 11, `value font ${valueFont} in viewBox ${boxW} is under 11px at 390px`);
+assert.match(cardSource, /data-hmi/);
+assert.match(cardSource, /hmiTheme/);
+assert.match(cardSource, /significant_changes_only:\s*false/);
+assert.match(cardSource, /recorder\/statistics_during_period/);
+assert.match(cardSource, /chart-empty/);
+assert.match(cardSource, /overflow-wrap:anywhere/);
+assert.match(cardSource, /Ventilation – Nilan Comfort 300 LR/);
 
 assert.equal(context.NilanChart.legendLine('Ude', 12.3, '°C', true), 'Ude 12,3 °C');
 assert.equal(context.NilanChart.legendLine('Outdoor', 12.3, '°C', false), 'Outdoor 12.3 °C');
@@ -128,6 +141,47 @@ for (const name of ['Ude', 'Udsug', 'Indblæs', 'Afkast']) assert.match(tip, new
 assert.match(tip, /,/);
 const efficiency = context.NilanChart.history([{ id: 'efficiency', name: 'Afkastside', unit: '%', points: [[now - 1000, 20], [now, 25.5]] }], { comma: true, maxLabel: 'Maks' });
 assert.match(efficiency, /data-top="1"[^>]*>Maks Afkastside 25,5 %</);
+const emptyChart = context.NilanChart.history(
+  [{ id: 't8_outdoor', name: 'Ude', unit: '°C', points: [] }],
+  { comma: true, empty: 'Ingen historik endnu. Den kommer, når Home Assistant har optaget målingerne.' },
+);
+assert.match(emptyChart, /data-empty="1"/);
+assert.doesNotMatch(emptyChart, /Ingen historik/);
+assert.match(emptyChart, />°C</);
+
+const t3 = 'sensor.nilan_t3_extract';
+const compressed = {
+  [t3]: [
+    { s: '21.5', lu: 1759406400.0 },
+    { s: '22,1', lu: 1759410000.25 },
+    { s: 'unavailable', lu: 1759413600 },
+    { s: '22.8', lc: 1759417200.0 },
+  ],
+};
+const parsed = context.NilanChart.parseHistory(compressed);
+assert.equal(JSON.stringify(parsed[t3]), JSON.stringify([
+  [1759406400000, 21.5],
+  [1759410000250, 22.1],
+  [1759417200000, 22.8],
+]));
+const legacy = [[
+  { entity_id: 'sensor.nilan_t8_outdoor', state: '12.3', last_changed: '2026-10-02T12:00:00.000Z', last_updated: '2026-10-02T12:00:00.000Z' },
+  { s: '11.5', lu: 1759406400 },
+]];
+const legacyParsed = context.NilanChart.parseHistory(legacy);
+assert.equal(legacyParsed['sensor.nilan_t8_outdoor'][0][1], 12.3);
+assert.equal(legacyParsed['sensor.nilan_t8_outdoor'][0][0], Date.parse('2026-10-02T12:00:00.000Z'));
+assert.equal(legacyParsed['sensor.nilan_t8_outdoor'][1][1], 11.5);
+const stats = context.NilanChart.parseStatistics({
+  'sensor.nilan_efficiency': [
+    { start: 1759406400000, end: 1759406700000, mean: 65.4, min: 60, max: 70 },
+    { start: 1759406700000, mean: 29.3 },
+  ],
+});
+assert.equal(JSON.stringify(stats['sensor.nilan_efficiency']), JSON.stringify([
+  [1759406400000, 65.4],
+  [1759406700000, 29.3],
+]));
 
 const Card = definitions.get('nilan-cts602-card');
 const card = new Card();

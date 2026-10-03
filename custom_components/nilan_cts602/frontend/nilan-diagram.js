@@ -1,98 +1,95 @@
-/* SCADA diagram for a Comfort 300 LR.
+/* HMI diagram for a Comfort 300 LR.
 
-Thick round ducts with flanges and elbows, and a plate cross-flow exchanger:
-a beveled box with a rotated, hatched plate pack. The two air paths cross
-inside that pack and meet the ducts at the four corners. Outdoor air is T8.
-T15 is the loft panel and is not drawn on the ducts.
+Two straight metal ducts and a cross-flow plate exchanger: a diamond plate
+pack in a housing that spans both ducts. Not a rotary wheel. Outdoor air is T8.
 */
 (function (root) {
   function esc(value) {
     return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  function lcd(text) {
-    const raw = String(text ?? '').trim();
-    if (!raw || raw === '—' || raw === '-') return '—';
-    const match = raw.match(/^(.*?)\s+(°C|%|d|ppm|min)$/);
-    if (!match) return esc(raw);
-    return `${esc(match[1])}<tspan class="unit"> ${esc(match[2])}</tspan>`;
+  function duct(x, y, w, h) {
+    return `<rect class="duct" x="${x}" y="${y}" width="${w}" height="${h}" rx="3"/>
+      <rect class="duct-hi" x="${x + 2}" y="${y + 2}" width="${Math.max(0, w - 4)}" height="3" rx="1"/>`;
   }
 
-  function pipe(d, flow, part) {
-    return `<path class="pipe-shadow" d="${d}"/>
-      <path class="pipe-body" d="${d}"/>
-      <path class="pipe-bore" d="${d}"/>
-      <path class="pipe-flow ${flow}" data-part="${part}" data-flow="${flow}" d="${d}"/>`;
-  }
-
-  function flange(x, y, vertical) {
-    const rx = vertical ? 13 : 4.2;
-    const ry = vertical ? 4.2 : 13;
+  function flange(x, y, h) {
     return `<g class="flange" transform="translate(${x} ${y})">
-      <ellipse class="flange-ring" cx="0" cy="1.2" rx="${rx}" ry="${ry}"/>
-      <ellipse class="flange-face" cx="0" cy="0" rx="${rx}" ry="${ry}"/>
-      <ellipse class="flange-bore" cx="0" cy="0" rx="${rx * 0.46}" ry="${ry * 0.46}"/>
+      <rect x="-3" y="0" width="6" height="${h}" rx="1"/>
     </g>`;
   }
 
-  function chevrons(d, tone, count) {
-    return Array.from({ length: count }, (_, index) => {
-      const delay = (-index / count).toFixed(2);
-      return `<g class="chev ${tone}" style="offset-path:path('${d}');animation-delay:${delay}s">
-        <path d="M-5.2 -3.4 L1.6 0 L-5.2 3.4"/>
-      </g>`;
-    }).join('');
-  }
-
-  function fan(x, y, part, spinning, pct, step, notesBelow) {
-    const noteY = notesBelow ? y + 28 : y - 24;
-    const stepY = notesBelow ? noteY + 12 : noteY - 12;
+  function fan(x, y, part, spinning, outletRight) {
+    const nozzle = outletRight
+      ? `<rect class="fan-outlet" x="8" y="-8" width="16" height="16" rx="2"/>`
+      : `<rect class="fan-outlet" x="-24" y="-8" width="16" height="16" rx="2"/>`;
     return `<g data-part="${part}" class="fan" transform="translate(${x} ${y})">
-      <circle class="fan-shadow" r="18" cy="1.6"/>
-      <circle class="fan-housing" r="17"/>
-      <circle class="fan-well" r="12.5"/>
+      ${nozzle}
+      <circle class="fan-shadow" r="19" cy="1.5"/>
+      <circle class="fan-housing" r="18"/>
+      <circle class="fan-well" r="11"/>
       <g class="${spinning ? 'rotor' : 'rotor stopped'}">
-        <path d="M0 0 C3.2 -1.5 5.2 -7.2 1.4 -10.2 C-1.2 -7.4 -0.8 -2.4 0 0"/>
-        <path transform="rotate(90)" d="M0 0 C3.2 -1.5 5.2 -7.2 1.4 -10.2 C-1.2 -7.4 -0.8 -2.4 0 0"/>
-        <path transform="rotate(180)" d="M0 0 C3.2 -1.5 5.2 -7.2 1.4 -10.2 C-1.2 -7.4 -0.8 -2.4 0 0"/>
-        <path transform="rotate(270)" d="M0 0 C3.2 -1.5 5.2 -7.2 1.4 -10.2 C-1.2 -7.4 -0.8 -2.4 0 0"/>
+        <path d="M0 0 C2.4 -1.2 3.6 -7.4 0.6 -10.2 C-1.6 -6.6 -0.8 -2 0 0"/>
+        <path transform="rotate(120)" d="M0 0 C2.4 -1.2 3.6 -7.4 0.6 -10.2 C-1.6 -6.6 -0.8 -2 0 0"/>
+        <path transform="rotate(240)" d="M0 0 C2.4 -1.2 3.6 -7.4 0.6 -10.2 C-1.6 -6.6 -0.8 -2 0 0"/>
       </g>
-      <circle class="hub" r="2.3"/>
-    </g>
-    ${pct ? `<text class="fan-note" x="${x}" y="${notesBelow ? stepY : noteY}" text-anchor="middle">${esc(pct)}</text>` : ''}
-    ${step ? `<text class="fan-note" x="${x}" y="${notesBelow ? noteY : stepY}" text-anchor="middle">${esc(step)}</text>` : ''}`;
-  }
-
-  function filter(x, y, alarm, days, daysY) {
-    return `<g data-part="filter" class="filter ${alarm ? 'alarm' : 'idle'}" transform="translate(${x} ${y})">
-      <rect class="filter-body" x="-13" y="-16" width="26" height="32" rx="3"/>
-      <path class="pleat" d="M-8 -11 H8 L-8 -6 H8 L-8 -1 H8 L-8 4 H8 L-8 9 H8"/>
-      ${flange(-16, 0, false)}
-      ${flange(16, 0, false)}
-    </g>
-    ${days ? `<text class="symbol-note ${alarm ? 'alarm-note' : ''}" x="${x}" y="${daysY}" text-anchor="middle">${esc(days)}</text>` : ''}`;
-  }
-
-  function probe(x, y, part, sensorId, code, value, lcdY) {
-    return `<g class="tag" data-part="${part}" data-sensor="${sensorId}">
-      <circle class="probe" cx="${x}" cy="${y}" r="8"/>
-      <circle class="probe-shine" cx="${x - 2.2}" cy="${y - 2.4}" r="2.1"/>
-      <text class="probe-code" x="${x}" y="${y + 3.1}" text-anchor="middle">${esc(code)}</text>
-      <rect class="lcd-box" x="${x - 28}" y="${lcdY - 10}" width="56" height="16" rx="3"/>
-      <text class="lcd-text" x="${x}" y="${lcdY + 2.4}" text-anchor="middle">${lcd(value)}</text>
+      <circle class="hub" r="2.2"/>
     </g>`;
   }
 
-  function endLabel(x, y, anchor, line1, line2, tone) {
-    return `<text class="end-label ${tone}" x="${x}" y="${y}" text-anchor="${anchor}">${esc(line1)}</text>
-      <text class="end-label ${tone}" x="${x}" y="${y + 16}" text-anchor="${anchor}">${esc(line2)}</text>`;
+  function filter(x, y, alarm) {
+    return `<g data-part="filter" class="filter ${alarm ? 'alarm' : 'idle'}" transform="translate(${x} ${y})">
+      <rect class="filter-body" x="-15" y="-16" width="30" height="32" rx="1.5"/>
+      <path class="pleat" d="M-10 -12 L-5 -7 L-10 -2 L-5 3 L-10 8 L-5 12 M-2 -12 L3 -7 L-2 -2 L3 3 L-2 8 L3 12 M6 -12 L10 -7 L6 -2 L10 3 L6 8"/>
+    </g>`;
   }
 
   function coil(x, y, part) {
     return `<g data-part="${part}" class="coil" transform="translate(${x} ${y})">
-      <rect x="-9" y="-15" width="18" height="30" rx="3"/>
+      <rect x="-8" y="-14" width="16" height="28" rx="2"/>
       <path d="M-5 -9 H5 M-5 -4.5 H5 M-5 0 H5 M-5 4.5 H5 M-5 9 H5"/>
     </g>`;
+  }
+
+  function tag(x, y, part, sensorId, code) {
+    return `<g class="sensor" data-part="${part}" data-sensor="${sensorId}">
+      <circle class="head" cx="${x}" cy="${y}" r="8"/>
+      <text class="tag-name" font-size="8" x="${x}" y="${y + 3}" text-anchor="middle">${esc(code)}</text>
+    </g>`;
+  }
+
+  function valueBox(x, y, w, h, text, sensorId) {
+    const raw = String(text ?? '').trim();
+    if (!raw) return '';
+    const sensor = sensorId ? ` data-sensor="${sensorId}"` : '';
+    return `<g class="vbox"${sensor}>
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2"/>
+      <text class="value-text" font-size="27" x="${x + w / 2}" y="${y + 23}" text-anchor="middle">${esc(raw)}</text>
+    </g>`;
+  }
+
+  function driftTag(x, y, on, label) {
+    const w = 62;
+    return `<g class="drift ${on ? 'on' : 'off'}" transform="translate(${x - w / 2} ${y})">
+      <rect width="${w}" height="16" rx="2"/>
+      <text font-size="12" x="${w / 2}" y="12" text-anchor="middle">${esc(label)}</text>
+    </g>`;
+  }
+
+  function endLabel(x, y, anchor, line1, line2, tone) {
+    return `<text class="end-label ${tone}" font-size="14" x="${x}" y="${y}" text-anchor="${anchor}">${esc(line1)}</text>
+      <text class="end-label ${tone}" font-size="14" x="${x}" y="${y + 22}" text-anchor="${anchor}">${esc(line2)}</text>`;
+  }
+
+  function chevrons(x1, x2, y, tone, count) {
+    const dir = x2 >= x1 ? 1 : -1;
+    const span = Math.abs(x2 - x1);
+    return Array.from({ length: count }, (_, index) => {
+      const at = x1 + dir * ((index + 0.5) / count) * span;
+      const tip = at + dir * 6;
+      const delay = (-index / count).toFixed(2);
+      return `<path class="chev ${tone}" style="animation-delay:${delay}s" d="M${at} ${y - 4} L${tip} ${y} L${at} ${y + 4}"/>`;
+    }).join('');
   }
 
   function markup(plant, values) {
@@ -106,191 +103,201 @@ T15 is the loft panel and is not drawn on the ducts.
     const supplySpin = v.supplySpin || '1.70';
     const extractSpin = v.extractSpin || '1.80';
     const flowSpeed = v.flowSpeed || '1.15';
-    const blade = bypass === 'open' ? 'M-9 0 H9' : bypass === 'closed' ? 'M0 -9 V9' : bypass === 'unknown' ? '' : 'M-7 -6 L7 6';
+    const bypassLabel = v.bypassLabel || (
+      bypass === 'open' ? 'åben'
+        : bypass === 'closed' ? 'lukket'
+          : bypass === 'opening' ? 'åbner…'
+            : bypass === 'closing' ? 'lukker…'
+              : ''
+    );
+    const blade = bypass === 'open' ? 'M-8 0 H8' : bypass === 'closed' ? 'M0 -8 V8' : bypass === 'unknown' ? '' : 'M-6 -5 L6 5';
+    const drift = v.drift || 'Drift';
+    const stopped = v.stopped || 'Stop';
 
-    const box = { x: 128, y: 104, w: 184, h: 148 };
-    const right = box.x + box.w;
-    const bottom = box.y + box.h;
-    const cx = box.x + box.w / 2;
-    const cy = box.y + box.h / 2;
-    const depth = { x: 16, y: -14 };
+    const topY = 128;
+    const botY = 228;
+    const ductH = 40;
+    const topCy = topY + ductH / 2;
+    const botCy = botY + ductH / 2;
+    const house = { x: 304, y: 116, w: 164, h: 164 };
+    const cx = house.x + house.w / 2;
+    const cy = house.y + house.h / 2;
+    const rx = 62;
+    const ry = 72;
+    const diamond = `${cx},${cy - ry} ${cx + rx},${cy} ${cx},${cy + ry} ${cx - rx},${cy}`;
+    const boxY = 92;
+    const boxH = 32;
+    const lowY = 356;
+    const pre = fitted.preheater ? coil(210, botCy, 'preheater') : '';
+    const re = fitted.reheater && fitted.reheater !== 'none' ? coil(500, botCy, 'reheater') : '';
 
-    const exhaust = 'M148 104 V78 Q148 62 128 62 H22';
-    const extract = 'M418 62 H300 Q276 62 276 80 V104';
-    const outdoor = 'M22 312 H112 Q140 312 140 286 V252';
-    const supply = 'M292 252 V286 Q292 312 320 312 H418';
-    const bypassDuct = 'M96 312 V364 H344 V312';
-
-    const hatch = [];
-    for (let i = -78; i <= 78; i += 6.5) hatch.push(`<line x1="${cx - 80}" y1="${cy + i}" x2="${cx + 80}" y2="${cy + i}"/>`);
-    const diamond = `${cx},${box.y + 18} ${right - 18},${cy} ${cx},${bottom - 18} ${box.x + 18},${cy}`;
-
-    const pre = fitted.preheater ? coil(86, 312, 'preheater') : '';
-    const re = fitted.reheater && fitted.reheater !== 'none' ? coil(348, 312, 'reheater') : '';
-
-    return `<svg viewBox="0 0 440 400" width="100%" data-diagram="scada" class="${running ? 'running' : 'stopped'} bypass-${bypass}" style="--nilan-supply-spin:${supplySpin}s;--nilan-extract-spin:${extractSpin}s;--nilan-flow-speed:${flowSpeed}s" role="img">
+    return `<svg viewBox="0 0 780 408" width="100%" data-diagram="hmi" class="${running ? 'running' : 'stopped'} bypass-${bypass}" style="--nilan-supply-spin:${supplySpin}s;--nilan-extract-spin:${extractSpin}s;--nilan-flow-speed:${flowSpeed}s" role="img">
       <defs>
-        <linearGradient id="nilan-metal" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="color-mix(in srgb, var(--nilan-fg,#e8eef6) 62%, #d5dde4)"/>
-          <stop offset="0.42" stop-color="color-mix(in srgb, var(--nilan-fg,#e8eef6) 18%, #8d99a4)"/>
-          <stop offset="1" stop-color="color-mix(in srgb, var(--nilan-bg,#14171c) 72%, #3e4852)"/>
+        <linearGradient id="nilan-duct" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="var(--hmi-duct-hi,#f7fafc)"/>
+          <stop offset="0.42" stop-color="var(--hmi-duct-mid,#c5d0d8)"/>
+          <stop offset="1" stop-color="var(--hmi-duct-lo,#8b9aa6)"/>
         </linearGradient>
-        <linearGradient id="nilan-metal-top" x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0" stop-color="color-mix(in srgb, var(--nilan-fg,#e8eef6) 20%, #7d8892)"/>
-          <stop offset="1" stop-color="color-mix(in srgb, var(--nilan-fg,#e8eef6) 70%, #eef3f6)"/>
+        <linearGradient id="nilan-frame" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="var(--hmi-duct-hi,#f7fafc)"/>
+          <stop offset="0.45" stop-color="var(--hmi-duct-mid,#c5d0d8)"/>
+          <stop offset="1" stop-color="var(--hmi-frame,#6a7884)"/>
         </linearGradient>
-        <linearGradient id="nilan-hx" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="color-mix(in srgb, var(--nilan-fg,#e8eef6) 16%, #6a7580)"/>
-          <stop offset="0.5" stop-color="color-mix(in srgb, var(--nilan-bg,#14171c) 78%, #2c343c)"/>
-          <stop offset="1" stop-color="color-mix(in srgb, var(--nilan-bg,#14171c) 55%, #1a2026)"/>
-        </linearGradient>
-        <linearGradient id="nilan-supply-flow" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stop-color="#3d8dff"/>
+        <linearGradient id="nilan-cold" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stop-color="#2f7fe0"/>
           <stop offset="1" stop-color="#e07a32"/>
         </linearGradient>
-        <linearGradient id="nilan-extract-flow" x1="1" y1="0" x2="0" y2="0">
+        <linearGradient id="nilan-warm" x1="1" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#e08b86"/>
-          <stop offset="1" stop-color="#9aa3ab"/>
+          <stop offset="1" stop-color="#8e99a3"/>
         </linearGradient>
-        <clipPath id="nilan-hx-clip"><polygon points="${diamond}"/></clipPath>
+        <clipPath id="nilan-diamond"><polygon points="${diamond}"/></clipPath>
       </defs>
       <style>
         text{font-family:var(--nilan-font,Roboto,ui-sans-serif,system-ui,sans-serif)}
-        .pipe-shadow{fill:none;stroke:#000;stroke-opacity:.28;stroke-width:26;stroke-linecap:round;stroke-linejoin:round;transform:translateY(2px)}
-        .pipe-body{fill:none;stroke:url(#nilan-metal);stroke-width:22;stroke-linecap:round;stroke-linejoin:round}
-        .pipe-bore{fill:none;stroke:color-mix(in srgb, var(--nilan-bg,#14171c) 78%, #000);stroke-width:12;stroke-linecap:round;stroke-linejoin:round}
-        .pipe-flow{fill:none;stroke-width:6.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:2 10}
-        .pipe-flow.outdoor{stroke:#3d8dff}
-        .pipe-flow.supply{stroke:#e07a32}
-        .pipe-flow.extract{stroke:#e08b86}
-        .pipe-flow.exhaust{stroke:#9aa3ab}
-        .pipe-flow.bypass{stroke:#8ea0b3;stroke-opacity:.35}
-        .running.bypass-open .pipe-flow.bypass{stroke:#3d8dff;stroke-opacity:1;animation:nilan-flow var(--nilan-flow-speed,1.15s) linear infinite}
-        .running .pipe-flow.outdoor,.running .pipe-flow.supply,.running .pipe-flow.extract,.running .pipe-flow.exhaust{animation:nilan-flow var(--nilan-flow-speed,1.15s) linear infinite}
-        .flange-ring{fill:#000;fill-opacity:.25}
-        .flange-face{fill:url(#nilan-metal);stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 35%, #66717b);stroke-width:.6}
-        .flange-bore{fill:color-mix(in srgb, var(--nilan-bg,#14171c) 80%, #000)}
-        .chev{offset-rotate:auto;offset-distance:0%}
-        .running .chev{animation:nilan-march var(--nilan-flow-speed,1.15s) linear infinite}
-        .chev path{fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-        .chev.outdoor path{stroke:#7eb6ff}
-        .chev.supply path{stroke:#f0a36a}
-        .chev.extract path{stroke:#f0b2ad}
-        .chev.exhaust path{stroke:#c5ced6}
-        .running.bypass-open .chev.bypass{animation:nilan-march var(--nilan-flow-speed,1.15s) linear infinite}
-        .chev.bypass path{stroke:#7eb6ff}
-        .hx-shadow{fill:#000;fill-opacity:.28}
-        .hx-side{fill:color-mix(in srgb, var(--nilan-fg,#e8eef6) 10%, #4d575f);stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 22%, #3a434b);stroke-width:1}
-        .hx-top{fill:url(#nilan-metal-top);stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 45%, #9aa6b0);stroke-width:1}
-        .hx-face{fill:url(#nilan-hx);stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 28%, #8b97a1);stroke-width:1.4}
-        .hx-hatch{stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 28%, #9aa3ab);stroke-width:.7}
-        .hx-path{fill:none;stroke-width:9;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
-        .hx-path.supply{stroke:url(#nilan-supply-flow)}
-        .hx-path.extract{stroke:url(#nilan-extract-flow)}
-        .filter-body{fill:color-mix(in srgb, var(--nilan-bg,#14171c) 70%, #66717b);stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 40%, #8b97a1);stroke-width:1.2}
-        .pleat{fill:none;stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 55%, #c5ced6);stroke-width:1.15;stroke-linejoin:round}
-        .filter.alarm .filter-body{stroke:#d15b4a;fill:color-mix(in srgb,#d15b4a 22%, var(--nilan-bg,#14171c))}
-        .filter.alarm .pleat,.alarm-note{stroke:#e07a6a;fill:#e07a6a}
-        .fan-shadow{fill:#000;fill-opacity:.28}
-        .fan-housing{fill:url(#nilan-metal);stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 32%, #5c6770);stroke-width:1.3}
-        .fan-well{fill:color-mix(in srgb, var(--nilan-bg,#14171c) 88%, #000);stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 18%, #000);stroke-width:.6}
-        .rotor{fill:color-mix(in srgb, var(--nilan-fg,#e8eef6) 55%, #9aa6b0)}
+        .panel{fill:var(--hmi-panel,#d5dee8)}
+        .duct{fill:url(#nilan-duct);stroke:var(--hmi-frame,#6a7884);stroke-width:1.2}
+        .duct-hi{fill:#fff;fill-opacity:.45}
+        .flange rect{fill:url(#nilan-frame);stroke:var(--hmi-frame,#6a7884);stroke-width:.6}
+        .hx-shadow{fill:#000;fill-opacity:.18}
+        .hx-side{fill:var(--hmi-frame,#6a7884)}
+        .hx-face{fill:url(#nilan-frame);stroke:var(--hmi-ink,#1b2830);stroke-width:1.3}
+        .hx-diamond{fill:color-mix(in srgb, var(--hmi-box,#fff) 72%, var(--hmi-duct-mid,#c5d0d8));stroke:var(--hmi-ink,#1b2830);stroke-width:1.4}
+        .hx-hatch{stroke:color-mix(in srgb, var(--hmi-ink,#1b2830) 55%, var(--hmi-duct-lo,#8b9aa6));stroke-width:.7}
+        .hx-path{fill:none;stroke-width:7;stroke-linecap:round;stroke-linejoin:round}
+        .hx-path.cold{stroke:url(#nilan-cold)}
+        .hx-path.warm{stroke:url(#nilan-warm)}
+        .filter-body{fill:var(--hmi-box,#fff);stroke:var(--hmi-frame,#6a7884);stroke-width:1.2}
+        .pleat{fill:none;stroke:var(--hmi-ink,#1b2830);stroke-width:1.15;stroke-linejoin:round}
+        .filter.alarm .filter-body{stroke:#c4473a;fill:#f8d9d4}
+        .filter.alarm .pleat{stroke:#c4473a}
+        .fan-shadow{fill:#000;fill-opacity:.16}
+        .fan-outlet,.fan-housing{fill:url(#nilan-duct);stroke:var(--hmi-frame,#6a7884);stroke-width:1.2}
+        .fan-well{fill:color-mix(in srgb, var(--hmi-duct-lo,#8b9aa6) 70%, #24303a)}
+        .rotor{fill:var(--hmi-panel-2,#eef3f7);stroke:var(--hmi-ink,#1b2830);stroke-width:.4}
         .running .rotor{animation:nilan-spin var(--nilan-supply-spin,1.7s) linear infinite;transform-box:fill-box;transform-origin:center}
         .running [data-part="extract_fan"] .rotor{animation-duration:var(--nilan-extract-spin,1.8s)}
         .running .rotor.stopped{animation:none}
-        .hub{fill:color-mix(in srgb, var(--nilan-fg,#e8eef6) 75%, #fff);stroke:color-mix(in srgb, var(--nilan-bg,#14171c) 40%, #000);stroke-width:.5}
-        .probe{fill:color-mix(in srgb, var(--nilan-bg,#14171c) 30%, #d7e0e7);stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 55%, #223);stroke-width:1}
-        .probe-shine{fill:#fff;fill-opacity:.55}
-        .probe-code{font-size:7.5px;font-weight:750;fill:#1c242c}
-        .lcd-box{fill:color-mix(in srgb, var(--nilan-bg,#14171c) 86%, #000);stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 22%, #000);stroke-width:.8}
-        .lcd-text{font-size:10px;font-weight:700;fill:var(--nilan-fg,#e8eef6);font-variant-numeric:tabular-nums}
-        .lcd-text .unit{font-size:7px;font-weight:550;fill:var(--nilan-muted,#93a0b0)}
-        .tag{cursor:pointer}
-        .fan-note,.symbol-note,.damper-note,.end-label{fill:var(--nilan-muted,#93a0b0);font-size:9px}
-        .fan-note{font-variant-numeric:tabular-nums;font-weight:650;fill:var(--nilan-fg,#e8eef6)}
-        .end-label{font-size:10px;font-weight:650}
-        .end-label.outdoor{fill:#7eb6ff}
-        .end-label.supply{fill:#f0a36a}
-        .end-label.extract{fill:#f0b2ad}
-        .end-label.exhaust{fill:#c5ced6}
-        .arrow{fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
-        .arrow.outdoor{stroke:#7eb6ff}.arrow.supply{stroke:#f0a36a}.arrow.extract{stroke:#f0b2ad}.arrow.exhaust{stroke:#c5ced6}
-        .damper-housing{fill:url(#nilan-metal);stroke:color-mix(in srgb, var(--nilan-fg,#e8eef6) 30%, #667);stroke-width:1}
-        .damper{stroke:#d7dee4;stroke-width:2.2;stroke-linecap:round;fill:none}
-        .bypass-open .damper,.bypass-opening .damper,.bypass-closing .damper{stroke:#e0a15a}
-        .eff-kicker{font-size:8px;fill:var(--nilan-muted,#93a0b0);font-weight:650}
-        .eff-value{font-size:16px;font-weight:750;fill:var(--nilan-fg,#e8eef6);font-variant-numeric:tabular-nums;cursor:pointer}
-        .eff-value .unit{font-size:9px;font-weight:600;fill:var(--nilan-muted,#93a0b0)}
-        .coil rect{fill:color-mix(in srgb, var(--nilan-bg,#14171c) 55%, #8a623c);stroke:#c4895a;stroke-width:1}
-        .coil path{fill:none;stroke:#e0b48a;stroke-width:1.2}
-        .bypass-note{font-size:9px;font-weight:650}
-        @keyframes nilan-flow{to{stroke-dashoffset:-24}}
-        @keyframes nilan-march{to{offset-distance:100%}}
+        .hub{fill:var(--hmi-ink,#1b2830)}
+        .head{fill:#c5ced6;stroke:#5c6b78;stroke-width:1}
+        .tag-name{font-weight:750;fill:#1c2830}
+        .vbox rect,.eff-box{fill:var(--hmi-box,#fff);stroke:var(--hmi-box-line,#6d8f5e);stroke-width:1.2}
+        .value-text{font-weight:700;fill:var(--hmi-ink,#1b2830);font-variant-numeric:tabular-nums}
+        .drift rect{fill:var(--hmi-line,#8ea0b0)}
+        .drift.on rect{fill:var(--hmi-drift,#2e9a4a)}
+        .drift text{font-weight:700;fill:var(--hmi-drift-ink,#fff)}
+        .end-label{font-weight:650}
+        .end-label.outdoor{fill:#2f7fe0}
+        .end-label.supply{fill:#d26520}
+        .end-label.extract{fill:#c45c58}
+        .end-label.exhaust{fill:#5c6b78}
+        .chev{fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+        .running .chev{animation:nilan-pulse var(--nilan-flow-speed,1.15s) linear infinite}
+        .chev.outdoor{stroke:#2f7fe0}
+        .chev.supply{stroke:#e07a32}
+        .chev.extract{stroke:#e08b86}
+        .chev.exhaust{stroke:#8e99a3}
+        .eff-title{font-weight:700;fill:var(--hmi-ink,#1b2830)}
+        .eff-value{font-weight:750}
+        .eff-note{fill:var(--hmi-muted,#4c5d6b)}
+        .bypass-metal{fill:url(#nilan-duct);stroke:var(--hmi-frame,#6a7884);stroke-width:1.1}
+        .damper-housing{fill:url(#nilan-frame);stroke:var(--hmi-ink,#1b2830);stroke-width:1}
+        .damper{stroke:var(--hmi-ink,#1b2830);stroke-width:2;stroke-linecap:round;fill:none}
+        .bypass-open .damper,.bypass-opening .damper,.bypass-closing .damper{stroke:#d26520}
+        .bypass-note{font-weight:700;fill:var(--hmi-ink,#1b2830)}
+        .coil rect{fill:#f3e2d2;stroke:#b57445;stroke-width:1}
+        .coil path{fill:none;stroke:#8a5a32;stroke-width:1.1}
+        .sensor,.vbox,.eff-box{cursor:pointer}
         @keyframes nilan-spin{to{transform:rotate(360deg)}}
+        @keyframes nilan-pulse{50%{opacity:.35}}
         @media (prefers-reduced-motion: reduce){
-          .pipe-flow,.chev,.running .rotor,.running.bypass-open .pipe-flow.bypass{animation:none}
+          .running .rotor,.running .chev{animation:none}
         }
       </style>
-      ${pipe(bypassDuct, 'bypass', 'bypass-duct')}
-      ${pipe(exhaust, 'exhaust', 'exhaust')}
-      ${pipe(extract, 'extract', 'extract')}
-      ${pipe(outdoor, 'outdoor', 'outdoor')}
-      ${pipe(supply, 'supply', 'supply')}
-      ${flange(148, 104, true)}
-      ${flange(128, 62, false)}
-      ${flange(276, 104, true)}
-      ${flange(300, 62, false)}
-      ${flange(140, 252, true)}
-      ${flange(112, 312, false)}
-      ${flange(292, 252, true)}
-      ${flange(320, 312, false)}
-      ${flange(96, 364, true)}
-      ${flange(344, 364, true)}
+      <rect class="panel" x="0" y="0" width="780" height="408"/>
       <g data-part="exchanger">
-        <polygon class="hx-shadow" points="${box.x + 4},${box.y + 8} ${right + depth.x},${box.y + 8} ${right + depth.x},${bottom + 8} ${box.x + 4},${bottom + 8}"/>
-        <polygon class="hx-side" points="${right},${box.y} ${right + depth.x},${box.y + depth.y} ${right + depth.x},${bottom + depth.y} ${right},${bottom}"/>
-        <polygon class="hx-top" points="${box.x},${box.y} ${box.x + depth.x},${box.y + depth.y} ${right + depth.x},${box.y + depth.y} ${right},${box.y}"/>
-        <rect class="hx-face" x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="8"/>
-        <g clip-path="url(#nilan-hx-clip)" class="hx-hatch">
-          ${hatch.join('')}
-          <g transform="rotate(90 ${cx} ${cy})">${hatch.join('')}</g>
+        <rect class="hx-shadow" x="${house.x + 5}" y="${house.y + 6}" width="${house.w}" height="${house.h}" rx="2"/>
+        <polygon class="hx-side" points="${house.x + house.w},${house.y} ${house.x + house.w + 8},${house.y + 6} ${house.x + house.w + 8},${house.y + house.h + 6} ${house.x + house.w},${house.y + house.h}"/>
+        <rect class="hx-face" x="${house.x}" y="${house.y}" width="${house.w}" height="${house.h}" rx="2"/>
+        <polygon class="hx-diamond" points="${diamond}"/>
+        <g class="hx-hatch" clip-path="url(#nilan-diamond)">
+          ${Array.from({ length: 17 }, (_, i) => {
+            const y = cy - ry + 8 + i * 8;
+            return `<line x1="${cx - rx}" y1="${y}" x2="${cx + rx}" y2="${y}"/>`;
+          }).join('')}
+          <g transform="rotate(90 ${cx} ${cy})">
+            ${Array.from({ length: 15 }, (_, i) => {
+              const y = cy - rx + 6 + i * 8;
+              return `<line x1="${cx - ry}" y1="${y}" x2="${cx + ry}" y2="${y}"/>`;
+            }).join('')}
+          </g>
         </g>
-        <polygon points="${diamond}" fill="none" stroke="color-mix(in srgb, var(--nilan-fg,#e8eef6) 40%, #9aa3ab)" stroke-width="1.3"/>
-        <path class="hx-path supply" d="M${box.x + 24} ${cy + 16} C ${cx - 24} ${cy + 22}, ${cx + 24} ${cy - 22}, ${right - 24} ${cy - 16}"/>
-        <path class="hx-path extract" d="M${cx + 16} ${box.y + 24} C ${cx + 22} ${cy - 24}, ${cx - 22} ${cy + 24}, ${cx - 16} ${bottom - 24}"/>
-        <text class="eff-kicker" x="${cx}" y="${cy - 8}" text-anchor="middle">${esc(v.efficiencyTitle || 'Varmegenvinding')}</text>
-        <text class="eff-value" data-sensor="efficiency" x="${cx}" y="${cy + 12}" text-anchor="middle">${lcd(v.efficiency || '—')}</text>
+        <polygon points="${diamond}" fill="none" stroke="var(--hmi-ink,#1b2830)" stroke-width="1.2"/>
+        <path class="hx-path cold" d="M${cx - rx + 10} ${cy + 18} L${cx + rx - 10} ${cy - 18}"/>
+        <path class="hx-path warm" d="M${cx + rx - 10} ${cy + 16} L${cx - rx + 10} ${cy - 16}"/>
       </g>
-      <g data-part="bypass" data-state="${bypass}" class="bypass-${bypass}" transform="translate(220 364)">
-        <circle class="damper-housing" r="13"/>
-        ${blade ? `<path class="damper" d="${blade}"/>` : ''}
-        <path class="damper" d="M-4.2 -4.2 L4.2 4.2 M-4.2 4.2 L4.2 -4.2" stroke-width="1.1"/>
-        <rect x="-3" y="-20" width="6" height="8" rx="1" fill="url(#nilan-metal)"/>
+      <g data-part="exhaust" data-flow="exhaust">
+        ${duct(108, topY, house.x - 108, ductH)}
+        ${flange(168, topY - 3, ductH + 6)}
+        ${flange(house.x, topY - 3, ductH + 6)}
       </g>
-      ${v.bypassShort ? `<text class="damper-note bypass-note" x="220" y="392" text-anchor="middle">${esc(v.bypassShort)}</text>` : ''}
-      ${filter(70, 312, alarm, v.filterDays, 292)}
-      ${filter(338, 62, alarm, v.filterDays, 48)}
-      ${fan(104, 62, 'extract_fan', !!v.extractSpin, v.extractPct, v.extractStep, true)}
-      ${fan(366, 312, 'supply_fan', !!v.supplySpin, v.supplyPct, v.supplyStep, false)}
+      <g data-part="extract" data-flow="extract">
+        ${duct(house.x + house.w, topY, 672 - (house.x + house.w), ductH)}
+        ${flange(house.x + house.w, topY - 3, ductH + 6)}
+        ${flange(560, topY - 3, ductH + 6)}
+      </g>
+      <g data-part="outdoor" data-flow="outdoor">
+        ${duct(108, botY, house.x - 108, ductH)}
+        ${flange(200, botY - 3, ductH + 6)}
+        ${flange(house.x, botY - 3, ductH + 6)}
+      </g>
+      <g data-part="supply" data-flow="supply">
+        ${duct(house.x + house.w, botY, 672 - (house.x + house.w), ductH)}
+        ${flange(house.x + house.w, botY - 3, ductH + 6)}
+        ${flange(590, botY - 3, ductH + 6)}
+      </g>
+      <g data-part="bypass" data-state="${bypass}" class="bypass-${bypass}" data-flow="bypass">
+        <path class="bypass-metal" d="M${cx - 54} ${botY + ductH} H${cx - 40} V318 H${cx + 40} V${botY + ductH} H${cx + 54} V324 H${cx - 54} Z"/>
+        <g transform="translate(${cx} 306)">
+          <circle class="damper-housing" r="11"/>
+          ${blade ? `<path class="damper" d="${blade}"/>` : ''}
+        </g>
+        ${bypassLabel ? `<text class="bypass-note" font-size="16" x="${cx}" y="338" text-anchor="middle">${esc(bypassLabel)}</text>` : ''}
+      </g>
+      <g data-sensor="efficiency">
+        <rect class="eff-box" x="286" y="6" width="208" height="80" rx="2"/>
+        <text class="eff-title" font-size="15" x="390" y="24" text-anchor="middle">${esc(v.efficiencyTitle || 'Varmegenvinding')}</text>
+        <text class="value-text eff-value" font-size="28" x="390" y="70" text-anchor="middle">${esc(v.efficiency || '—')}</text>
+      </g>
+      ${fan(248, topCy, 'extract_fan', !!v.extractSpin, false)}
+      ${fan(530, botCy, 'supply_fan', !!v.supplySpin, true)}
+      ${driftTag(248, 128, running && !!v.extractSpin, running && v.extractSpin ? drift : stopped)}
+      ${driftTag(530, 210, running && !!v.supplySpin, running && v.supplySpin ? drift : stopped)}
+      ${filter(516, topCy, alarm)}
+      ${filter(248, botCy, alarm)}
       ${pre}${re}
-      ${probe(52, 62, 'exhaust', 't4_exhaust', 'T4', v.t4, 96)}
-      ${probe(404, 62, 'extract', 't3_extract', 'T3', v.t3, 96)}
-      ${probe(378, 136, 'humidity', 'humidity', 'RH', v.humidity, 162)}
-      ${probe(48, 312, 'outdoor', 't8_outdoor', 'T8', v.t8, 346)}
-      ${probe(400, 312, 'supply', 't7_supply', 'T7', v.t7, 346)}
-      ${endLabel(16, 22, 'start', v.exhaust1 || 'Afkast', v.exhaust2 || 'til det fri', 'exhaust')}
-      ${endLabel(424, 22, 'end', v.extract1 || 'Udsugning', v.extract2 || 'fra boligen', 'extract')}
-      ${endLabel(16, 236, 'start', v.outdoor1 || 'Udeluft', v.outdoor2 || 'fra det fri', 'outdoor')}
-      ${endLabel(424, 236, 'end', v.supply1 || 'Indblæsning', v.supply2 || 'til boligen', 'supply')}
-      <path class="arrow exhaust" d="M36 48 H16 L22 43 M16 48 L22 53"/>
-      <path class="arrow extract" d="M392 48 H412 L406 43 M412 48 L406 53"/>
-      <path class="arrow outdoor" d="M16 292 H36 L30 287 M36 292 L30 297"/>
-      <path class="arrow supply" d="M392 292 H412 L406 287 M412 292 L406 297"/>
-      ${running ? chevrons('M120 62 H28', 'exhaust', 3) : ''}
-      ${running ? chevrons('M408 62 H310', 'extract', 3) : ''}
-      ${running ? chevrons('M28 312 H100', 'outdoor', 3) : ''}
-      ${running ? chevrons('M330 312 H408', 'supply', 3) : ''}
-      ${running && bypass === 'open' ? chevrons('M110 364 H330', 'bypass', 3) : ''}
+      ${tag(162, topCy, 'exhaust', 't4_exhaust', 'T4')}
+      ${tag(590, topCy, 'humidity', 'humidity', 'RH')}
+      ${tag(650, topCy, 'extract', 't3_extract', 'T3')}
+      ${tag(162, botCy, 'outdoor', 't8_outdoor', 'T8')}
+      ${tag(640, botCy, 'supply', 't7_supply', 'T7')}
+      ${valueBox(106, boxY, 112, boxH, v.t4, 't4_exhaust')}
+      ${valueBox(484, boxY, 64, boxH, v.filterDays, '')}
+      ${valueBox(594, boxY, 112, boxH, v.t3, 't3_extract')}
+      ${valueBox(534, 174, 112, 30, v.humidity, 'humidity')}
+      ${valueBox(196, 174, 72, 30, v.extractPct, '')}
+      ${valueBox(106, lowY, 112, boxH, v.t8, 't8_outdoor')}
+      ${valueBox(216, lowY, 64, boxH, v.filterDays, '')}
+      ${valueBox(494, lowY, 72, boxH, v.supplyPct, '')}
+      ${valueBox(584, lowY, 112, boxH, v.t7, 't7_supply')}
+      ${endLabel(10, 140, 'start', v.exhaust1 || 'Afkast', v.exhaust2 || 'til det fri', 'exhaust')}
+      ${endLabel(770, 140, 'end', v.extract1 || 'Udsugning', v.extract2 || 'fra boligen', 'extract')}
+      ${endLabel(10, 240, 'start', v.outdoor1 || 'Udeluft', v.outdoor2 || 'fra det fri', 'outdoor')}
+      ${endLabel(770, 240, 'end', v.supply1 || 'Indblæsning', v.supply2 || 'til boligen', 'supply')}
+      ${running ? chevrons(300, 130, topCy, 'exhaust', 3) : ''}
+      ${running ? chevrons(490, 660, topCy, 'extract', 3) : ''}
+      ${running ? chevrons(130, 290, botCy, 'outdoor', 3) : ''}
+      ${running ? chevrons(490, 660, botCy, 'supply', 3) : ''}
     </svg>`;
   }
 

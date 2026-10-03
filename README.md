@@ -8,7 +8,7 @@
 [![Validation](https://img.shields.io/github/actions/workflow/status/Juulsen/Nilan_cts602/validate.yaml?branch=main&label=HACS%20%2B%20Hassfest%20%2B%20tests)](https://github.com/Juulsen/Nilan_cts602/actions/workflows/validate.yaml)
 [![Home Assistant](https://img.shields.io/badge/Home_Assistant-2026.1.0%2B-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS custom repository](https://img.shields.io/badge/HACS-Custom_repository-41BDF5)](#installation)
-[![Project status](https://img.shields.io/badge/Status-Read--only_0.3.0-orange)](#status-and-support)
+[![Project status](https://img.shields.io/badge/Status-Read--only_0.4.0-orange)](#status-and-support)
 [![Local Modbus](https://img.shields.io/badge/Connection-Modbus_TCP_%7C_RTU-00897B)](#requirements)
 [![Languages](https://img.shields.io/badge/Languages-English_%7C_Dansk-blue)](#dashboard)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -16,11 +16,11 @@
 
 **Read a Nilan Comfort 300 LR with a CTS602 controller from Home Assistant, including duct temperatures, filter life, alarms and a cross-flow diagram.**
 
-An independent community project by **Juulsen**, under active testing. Not developed, supported or endorsed by Nilan. Version 0.3.0 only reads. Donations help support development and testing.
+An independent community project by **Juulsen**, under active testing. Not developed, supported or endorsed by Nilan. Version 0.4.0 only reads. Donations help support development and testing.
 
 ## Dansk
 
-Nilan CTS602 læser et Nilan Comfort 300 LR med CTS602 fra Home Assistant. Kortet viser krydsvarmeveksleren, ventilatorer, filter, alarmer og to grafer. Teksten er på dansk, når Home Assistant eller kortet er sat til dansk.
+Nilan CTS602 læser et Nilan Comfort 300 LR med CTS602 fra Home Assistant. Kortet viser krydsvarmeveksleren som et lyst CTS-billede med to lige kanaler, ventilatorer, filter, alarmer og to grafer. Teksten er på dansk, når Home Assistant eller kortet er sat til dansk.
 
 **Før du skifter:** slå den gamle `nilan`-integration (veista) fra, og fjern YAML-modbus-sensorer for samme slave. To integrationer på samme slave pumper den delte RS485-gateway.
 
@@ -29,14 +29,14 @@ Rumtemperaturen kan ikke skrives ind i regulatoren over Modbus. T15 er brugerpan
 Efter installation sættes dashboard-ressourcen til:
 
 ```text
-/nilan_cts602-static/nilan-card.js?v=0.3.0
+/nilan_cts602-static/nilan-card.js?v=0.4.0
 ```
 
 Behold kun én Nilan-ressource. Anlægget gemmes under **Indstillinger → Enheder og tjenester → Nilan CTS602 → Konfigurer**. Guiden spørger, før den gemmer, og den skriver ikke til CTS602.
 
 ## Features
 
-- **Read-only Modbus.** Function codes 03 and 04 only. Function code 06 is not used. Function code 16 is reserved for a later version and is refused in 0.3.0, including bus address, model type, service mode, factory reset, relay outputs, the keypress register and week-program erase.
+- **Read-only Modbus.** Function codes 03 and 04 only. Function code 06 is not used. Function code 16 is reserved for a later version and is refused in 0.4.0, including bus address, model type, service mode, factory reset, relay outputs, the keypress register and week-program erase.
 - **Comfort only.** Setup reads model type, protocol and software. Anything other than Comfort (type 13) is refused with the type that answered.
 - **Protocol gating.** Fan step, filter days and the bypass position register are read only when that protocol provides them.
 - **Plant.** Preheater, reheater (none, electric or water), CO₂ and T10 create entities only when they are fitted.
@@ -88,7 +88,7 @@ Update through HACS, or replace the complete integration folder, then restart Ho
 Add this dashboard resource as a **JavaScript module**:
 
 ```text
-/nilan_cts602-static/nilan-card.js?v=0.3.0
+/nilan_cts602-static/nilan-card.js?v=0.4.0
 ```
 
 Add a manual card:
@@ -107,21 +107,29 @@ language: da
 view: graphic
 ```
 
-The tabs are **Overblik · Alarmer · Filter · Indstillinger**. Settings are read-only in 0.3.0. An administrator can open **Opsæt anlæg**. Saving asks for confirmation and stores the plant on the integration. It does not call a Modbus write.
+The tabs are **Overblik · Alarmer · Filter · Indstillinger**. Settings are read-only in 0.4.0. An administrator can open **Opsæt anlæg**. Saving asks for confirmation and stores the plant on the integration. It does not call a Modbus write.
+
+`theme` is `light` (default), `dark` or `auto`. The default is the light HMI even when Home Assistant is dark. `auto` follows the Home Assistant theme.
+
+```yaml
+type: custom:nilan-cts602-card
+language: da
+theme: light
+```
 
 The first time an administrator opens the card before a room entity is chosen, a banner starts the wizard. T15 and T10 are explained there: both can sit inside the unit, and the controller cannot take an external sensor over Modbus.
 
-### Version 0.3.0 card
+### Version 0.4.0 card
 
-The overview is a SCADA diagram: shaded ducts with elbows and flanges, a plate cross-flow exchanger, round fans, filters and a bypass damper under the exchanger. Tapping a value opens that sensor's history. The screenshots are the real card with simulated readings.
+The overview is a light industrial HMI: two straight shaded ducts and a cross-flow plate exchanger. The exchanger is a diamond plate pack inside a housing that spans both ducts. A bypass duct and damper sit beside it. Tapping a value opens that sensor. The screenshots are the real card with simulated readings.
 
-![Mobile, dark](docs/images/nilan-mobile-0.3.0.png)
+![Mobile, light](docs/images/nilan-mobile-light-0.4.0.png)
 
-![Desktop, dark](docs/images/nilan-desktop-0.3.0.png)
+![Desktop, light](docs/images/nilan-desktop-light-0.4.0.png)
 
-![Mobile, light](docs/images/nilan-mobile-light-0.3.0.png)
+![Mobile, dark](docs/images/nilan-mobile-dark-0.4.0.png)
 
-![Desktop, light](docs/images/nilan-desktop-light-0.3.0.png)
+![Desktop, dark](docs/images/nilan-desktop-dark-0.4.0.png)
 
 Every graph has a legend with the sensor name and the current value, for example `Ude 12,3 °C` when the language is Danish. A tap or hold shows every series at that time. The highest point on a graph is labelled. Decimal commas follow the language.
 
@@ -168,7 +176,7 @@ Serial is fixed at 19200 baud, 8 data bits, even parity, 1 stop bit, which is wh
 
 ## Status and support
 
-0.3.0 is read-only. It is meant to be installed and corrected against the live Comfort 300 LR (software 2.35.a, protocol 9). Setpoints and fan step are planned for a later version, still with function code 16, one register at a time, and only after an administrator confirms. A restart is required. After startup the integration rewrites an existing Nilan card resource to `/nilan_cts602-static/nilan-card.js?v=0.3.0`. Reload the browser so it fetches the new file.
+0.4.0 is read-only. It is meant to be installed and corrected against the live Comfort 300 LR (software 2.35.a, protocol 9). Setpoints and fan step are planned for a later version, still with function code 16, one register at a time, and only after an administrator confirms. A restart is required. After startup the integration rewrites an existing Nilan card resource to `/nilan_cts602-static/nilan-card.js?v=0.4.0`. Reload the browser so it fetches the new file.
 
 Issues: <https://github.com/Juulsen/Nilan_cts602/issues>
 

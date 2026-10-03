@@ -165,7 +165,33 @@
         return unit ? `${text} ${unit}` : text;
       },
       callWS(msg) {
-        if (msg.type === 'history/history_during_period') return Promise.resolve(history);
+        if (msg.type === 'history/history_during_period') {
+          if (params.get('history') === '0') return Promise.resolve({});
+          const compressed = {};
+          history.forEach((points, index) => {
+            const key = Object.keys(series)[index];
+            const id = `sensor.nilan_${key}`;
+            compressed[id] = points.map((row, rowIndex) => {
+              const stamp = Date.parse(row.last_changed) / 1000;
+              if (rowIndex % 5 === 2) return { s: String(row.state).replace('.', ','), lc: stamp };
+              return { s: row.state, lu: stamp };
+            });
+          });
+          return Promise.resolve(compressed);
+        }
+        if (msg.type === 'recorder/statistics_during_period') {
+          if (params.get('history') !== '0') return Promise.resolve({});
+          const stats = {};
+          Object.entries(series).forEach(([key, points]) => {
+            stats[`sensor.nilan_${key}`] = points.map((row) => ({
+              start: Date.parse(row.last_changed),
+              mean: Number(row.state),
+              min: Number(row.state) - 0.2,
+              max: Number(row.state) + 0.2,
+            }));
+          });
+          return Promise.resolve(stats);
+        }
         if (msg.type === 'config/entity_registry/get') return Promise.resolve({ config_entry_id: 'preview-entry' });
         if (msg.type === 'nilan_cts602/plant/get') {
           return Promise.resolve({ plant: { version: 1, preheater: false, reheater: 'none', co2: false, t10: false, room_source: 'entity', room_entity: 'sensor.stue_temperatur' } });
@@ -180,7 +206,8 @@
       version: 1, preheater: false, reheater: 'none', co2: false, t10: false,
       room_source: 'entity', room_entity: 'sensor.stue_temperatur',
     };
-    card.setConfig({ language: 'da', view, title: 'Nilan Comfort', plant });
+    const cardTheme = params.get('card') === 'dark' ? 'dark' : params.get('card') === 'auto' ? 'auto' : 'light';
+    card.setConfig({ language: 'da', view, theme: cardTheme, plant });
     card.hass = hass;
 
     function whenReady(fn) {
