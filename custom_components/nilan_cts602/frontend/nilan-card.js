@@ -1,5 +1,5 @@
-/* Nilan CTS602 dashboard. Read-only in 0.2.1. No external card dependencies. */
-const NILAN_VERSION = '0.2.1';
+/* Nilan CTS602 dashboard. Read-only in 0.3.0. No external card dependencies. */
+const NILAN_VERSION = '0.3.0';
 const NILAN_STATIC = '/nilan_cts602-static/';
 
 async function nilanLoadLibs() {
@@ -62,7 +62,7 @@ class NilanCard extends HTMLElement {
     }
     this.render();
   }
-  getCardSize() { return this.tab === 'overview' ? 8 : 6; }
+  getCardSize() { return this.tab === 'overview' ? 14 : 6; }
   getGridOptions() { return { columns: 12, min_columns: 6, rows: 'auto' }; }
   tr(da, en) { return this.lang() === 'da' ? da : en; }
   lang() { return String(this.config?.language || this._hass?.language || 'en').startsWith('da') ? 'da' : 'en'; }
@@ -244,7 +244,7 @@ class NilanCard extends HTMLElement {
     if (this.tab === 'filter') this.filter(card);
     if (this.tab === 'settings') this.settings(card);
     const foot = el('div', undefined, 'footer');
-    foot.append(el('span', this.tr('Kun læsning i 0.2.1. Tryk på grafen for værdier.', 'Read-only in 0.2.1. Tap the chart for values.')));
+    foot.append(el('span', this.tr('Kun læsning i 0.3.0. Tryk på grafen for værdier.', 'Read-only in 0.3.0. Tap the chart for values.')));
     foot.append(el('span', `Juulsen · ${NILAN_VERSION}`));
     card.append(foot);
     this.ensureHistory();
@@ -310,7 +310,7 @@ class NilanCard extends HTMLElement {
         if (node) this.moreInfo(node.getAttribute('data-sensor'));
       });
       card.append(box);
-      this.chips(card);
+      this.statusPanel(card);
     } else {
       const grid = el('div', undefined, 'tiles');
       for (const key of NILAN_FIELDS) {
@@ -379,6 +379,7 @@ class NilanCard extends HTMLElement {
       t15: this.find('t15_panel') ? this.fmt(this.num('t15_panel'), 1, '°C') : '',
       room: this.fmt(this.num('room_temperature'), 1, '°C'),
       efficiency: this.fmt(this.num('efficiency'), 1, '%'),
+      humidity: this.fmt(this.num('humidity'), 0, '%'),
       supplyPct,
       extractPct,
       supplyStep,
@@ -394,8 +395,72 @@ class NilanCard extends HTMLElement {
       t15Title: this.tr('T15 Panel', 'T15 Panel'),
       roomTitle: this.tr('Rum', 'Room'),
       efficiencyTitle: this.tr('Varmegenvinding', 'Heat recovery'),
-      house: this.tr('Bolig', 'Home'),
+      exhaust1: this.tr('Afkast', 'Exhaust'),
+      exhaust2: this.tr('til det fri', 'to outside'),
+      extract1: this.tr('Udsugning', 'Extract'),
+      extract2: this.tr('fra boligen', 'from the home'),
+      outdoor1: this.tr('Udeluft', 'Outdoor'),
+      outdoor2: this.tr('fra det fri', 'from outside'),
+      supply1: this.tr('Indblæsning', 'Supply'),
+      supply2: this.tr('til boligen', 'to the home'),
     };
+  }
+  statusPanel(card) {
+    const panel = el('div', undefined, 'status');
+    panel.append(this.statusBlock(this.tr('Driftsstatus', 'Operating status'), [
+      [this.tr('Driftstilstand', 'Operating mode'), this.stateText('operation_mode'), 'operation_mode'],
+      [this.tr('Aktuel drift', 'Current state'), this.stateText('control_state'), 'control_state'],
+      [this.tr('Ventilatortrin', 'Fan step'), this.find('fan_step') ? this.text('fan_step') : '—', 'fan_step'],
+      [this.tr('Setpunkt', 'Setpoint'), this.find('set_temperature') ? this.text('set_temperature') : '—', 'set_temperature'],
+      [this.tr('Sommerdrift', 'Summer mode'), this.onOff('summer', this.tr('Sommer', 'Summer'), this.tr('Vinter', 'Winter')), 'summer'],
+      [this.tr('Alarmer', 'Alarms'), this.onOff('alarm_active', this.tr('Alarm', 'Alarm'), this.tr('Ingen', 'None')), 'alarm_active'],
+    ]));
+    const bypass = this.bypassView();
+    const service = [
+      [this.tr('Filteradvarsel', 'Filter warning'), this.onOff('filter', this.tr('Skift filter', 'Change filter'), this.tr('Ok', 'Ok')), 'filter'],
+      [this.tr('Dage til skift', 'Days to change'), this.find('filter_days_left') ? this.text('filter_days_left') : '—', 'filter_days_left'],
+      [this.tr('Dage siden skift', 'Days since change'), this.find('filter_days_since') ? this.text('filter_days_since') : '—', 'filter_days_since'],
+      [this.tr('Bypass', 'Bypass'), bypass.chip ? bypass.chip.replace(/^Bypass\s+/i, '') : '—', 'bypass'],
+      [this.tr('Rum', 'Room'), this.find('room_temperature') ? this.text('room_temperature') : '—', 'room_temperature'],
+      [this.tr('T15 panel (loft)', 'T15 panel (loft)'), this.find('t15_panel') ? this.text('t15_panel') : '—', 't15_panel'],
+    ];
+    const block = this.statusBlock(this.tr('Filter og service', 'Filter and service'), service);
+    const note = el('p', this.tr(
+      'T15 er føleren i betjeningspanelet. På dette anlæg sidder panelet i loftet ved aggregatet, så tallet er ikke stuetemperaturen.',
+      'T15 is the sensor in the user panel. On this unit the panel is in the loft next to the ventilator, so the value is not the living-room temperature.',
+    ), 'status-note');
+    block.append(note);
+    panel.append(block);
+    card.append(panel);
+  }
+  statusBlock(title, rows) {
+    const section = el('section');
+    section.append(el('h3', title));
+    for (const [label, value, key] of rows) {
+      const row = el('button', undefined, 'status-row');
+      row.type = 'button';
+      row.append(el('span', label));
+      const lcd = el('b', value, value === '—' ? 'lcd muted' : 'lcd');
+      row.append(lcd);
+      if (key) row.onclick = () => this.moreInfo(key);
+      section.append(row);
+    }
+    return section;
+  }
+  stateText(key) {
+    const match = this.find(key);
+    if (!match) return '—';
+    const state = String(match[1].state ?? '');
+    if (!state || state === 'unavailable' || state === 'unknown' || state === 'none') return '—';
+    if (this._hass?.formatEntityState) return this._hass.formatEntityState(match[1]);
+    return state;
+  }
+  onOff(key, onLabel, offLabel) {
+    const match = this.find(key);
+    if (!match) return '—';
+    if (match[1].state === 'on') return onLabel;
+    if (match[1].state === 'off') return offLabel;
+    return '—';
   }
   bypassPosition() {
     const match = this.find('bypass');
@@ -545,7 +610,7 @@ class NilanCard extends HTMLElement {
     return tile;
   }
   settings(card) {
-    card.append(el('p', this.tr('Version 0.2.1 skriver ikke til regulatoren. Tallene er de aktuelle indstillinger.', 'Version 0.2.1 does not write to the controller. These are the current settings.'), 'muted'));
+    card.append(el('p', this.tr('Version 0.3.0 skriver ikke til regulatoren. Tallene er de aktuelle indstillinger.', 'Version 0.3.0 does not write to the controller. These are the current settings.'), 'muted'));
     for (const key of NILAN_SETTINGS) {
       const match = this.find(key);
       if (!match) continue;
@@ -658,8 +723,16 @@ button{cursor:pointer}
 nav button.active{box-shadow:inset 0 -2px 0 var(--nilan-accent)}
 .primary{background:var(--nilan-accent);color:#04221c;border-color:transparent}
 .diagram{border-radius:calc(var(--nilan-radius) - 0.25rem);overflow:hidden;background:var(--nilan-chip);margin-bottom:0.5rem}
-.diagram svg{display:block;width:min(100%,760px);height:auto;margin-inline:auto}
+.diagram svg{display:block;width:100%;height:auto}
 .history svg{display:block;width:100%;height:auto;max-height:220px}
+.status{display:grid;grid-template-columns:1fr;gap:0.55rem;margin:0.15rem 0 0.7rem}
+.status section{background:var(--nilan-chip);border:1px solid var(--nilan-line);border-radius:calc(var(--nilan-radius) - 0.3rem);padding:0.55rem 0.7rem 0.45rem}
+.status h3{margin:0 0 0.2rem;font-size:0.68rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--nilan-muted);font-weight:700}
+.status-row{display:flex;justify-content:space-between;align-items:center;gap:0.6rem;width:100%;padding:0.28rem 0;background:transparent;border:0;border-radius:0;text-align:left}
+.status-row span{color:var(--nilan-muted);font-size:0.78rem}
+.lcd{font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--nilan-bg) 84%,#000);color:var(--nilan-fg);border:1px solid var(--nilan-line);border-radius:0.35rem;padding:0.12rem 0.45rem;min-width:4.6rem;text-align:right;font-weight:680;font-size:0.82rem;box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 12%,transparent)}
+.lcd.muted{color:var(--nilan-muted);font-weight:550}
+.status-note{margin:0.35rem 0 0.15rem;font-size:0.68rem;line-height:1.35;color:var(--nilan-muted)}
 .chips{display:flex;flex-wrap:wrap;gap:0.4rem;margin:0.5rem 0}
 .chip{display:inline-flex;align-items:center;gap:0.35rem;border:1px solid var(--nilan-line);border-radius:999px;padding:0.22rem 0.55rem;font-size:0.75rem;font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--nilan-fg) 4%,var(--nilan-bg))}
 .dot{width:7px;height:7px;border-radius:50%;background:#9aa6b5;display:inline-block}
@@ -693,6 +766,9 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--nilan-accent);
 @container (min-width:720px){
   .tiles{grid-template-columns:repeat(4,minmax(0,1fr))}
   ha-card{padding:16px}
+}
+@container (min-width:680px){
+  .status{grid-template-columns:1fr 1fr}
 }
 @container (max-width:420px){
   ha-card{padding:12px}

@@ -98,7 +98,7 @@ ENTITIES: tuple[EntitySpec, ...] = (
     EntitySpec("t8_outdoor", "sensor", "Outdoor air (T8)", "Udeluft (T8)", "temperature", "°C", "measurement", 1, icon="mdi:thermometer"),
     EntitySpec("t9_heater", "sensor", "Heating surface (T9)", "Varmeflade (T9)", "temperature", "°C", "measurement", 1, enabled="probe_t9", icon="mdi:thermometer"),
     EntitySpec("t10_external", "sensor", "External sensor (T10)", "Ekstern føler (T10)", "temperature", "°C", "measurement", 1, enabled="probe_t10", icon="mdi:thermometer"),
-    EntitySpec("t15_panel", "sensor", "Panel temperature (T15)", "Panel (T15)", "temperature", "°C", "measurement", 1, icon="mdi:thermometer"),
+    EntitySpec("t15_panel", "sensor", "Loft panel (T15)", "Panel i loftet (T15)", "temperature", "°C", "measurement", 1, icon="mdi:thermometer"),
     EntitySpec("humidity", "sensor", "Humidity", "Fugtighed", "humidity", "%", "measurement", 1, icon="mdi:water-percent"),
     EntitySpec("co2", "sensor", "CO₂", "CO₂", "co2", "ppm", "measurement", 0, when="co2", icon="mdi:molecule-co2"),
     EntitySpec("control_state", "sensor", "Control state", "Driftstilstand", "enum", options_name="control_state", icon="mdi:state-machine"),
