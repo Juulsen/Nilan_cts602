@@ -65,6 +65,73 @@
     return [lo === hi ? lo - step : lo, lo === hi ? hi + step : hi, step];
   }
 
+  function historyStamp(value) {
+    if (value == null || value === '') return NaN;
+    if (typeof value === 'number') return value < 1e11 ? value * 1000 : value;
+    const parsed = Date.parse(String(value));
+    if (Number.isFinite(parsed)) return parsed;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return NaN;
+    return numeric < 1e11 ? numeric * 1000 : numeric;
+  }
+
+  function historyNumber(value) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
+    const text = String(value ?? '').trim().toLowerCase();
+    if (!text || text === 'unknown' || text === 'unavailable' || text === 'none' || text === 'null') return NaN;
+    const parsed = Number(text.replace(/\s/g, '').replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : NaN;
+  }
+
+  function pointsFromStates(states) {
+    const points = [];
+    for (const row of states || []) {
+      if (!row || typeof row !== 'object') continue;
+      const value = historyNumber(row.s != null ? row.s : row.state);
+      const stamp = row.lc != null || row.lu != null
+        ? historyStamp(row.lc != null ? row.lc : row.lu)
+        : historyStamp(row.last_changed || row.last_updated);
+      if (Number.isFinite(stamp) && Number.isFinite(value)) points.push([stamp, value]);
+    }
+    return points;
+  }
+
+  function parseHistory(response) {
+    const out = {};
+    if (!response) return out;
+    if (Array.isArray(response)) {
+      for (const list of response) {
+        if (!Array.isArray(list)) continue;
+        const id = list.find((row) => row && row.entity_id)?.entity_id;
+        if (id) out[id] = pointsFromStates(list);
+      }
+      return out;
+    }
+    if (typeof response === 'object') {
+      for (const [id, list] of Object.entries(response)) {
+        if (Array.isArray(list)) out[id] = pointsFromStates(list);
+      }
+    }
+    return out;
+  }
+
+  function parseStatistics(response) {
+    const out = {};
+    if (!response || typeof response !== 'object' || Array.isArray(response)) return out;
+    for (const [id, rows] of Object.entries(response)) {
+      if (!Array.isArray(rows)) continue;
+      const points = [];
+      for (const row of rows) {
+        if (!row || typeof row !== 'object') continue;
+        const value = historyNumber(row.mean != null ? row.mean : row.state);
+        const stamp = historyStamp(row.start != null ? row.start : row.end);
+        if (Number.isFinite(stamp) && Number.isFinite(value)) points.push([stamp, value]);
+      }
+      out[id] = points;
+    }
+    return out;
+  }
+
   function history(series, opts) {
     const comma = !!opts?.comma;
     const W = 360;
@@ -83,6 +150,8 @@
     const xTicks = [minX, minX + (maxX - minX) / 2, maxX];
     const grid = yTicks.map((y) => `<line x1="${box.l}" x2="${box.l + box.w}" y1="${sy(y).toFixed(1)}" y2="${sy(y).toFixed(1)}" stroke="var(--nilan-line,#2a3342)"/>`).join('');
     const yLabels = yTicks.map((y) => `<text x="${box.l - 4}" y="${(sy(y) + 3).toFixed(1)}" text-anchor="end" fill="var(--nilan-muted,#93a0b0)" font-size="10">${esc(num(y, 0, comma))}</text>`).join('');
+    const unit = (series || []).map((item) => item.unit).find(Boolean) || '';
+    const unitLabel = unit ? `<text x="${box.l}" y="${box.t - 8}" text-anchor="start" fill="var(--nilan-muted,#93a0b0)" font-size="10">${esc(unit)}</text>` : '';
     const xLabels = xTicks.map((stamp) => {
       const when = new Date(stamp);
       const label = `${String(when.getHours()).padStart(2, '0')}:${String(when.getMinutes()).padStart(2, '0')}`;
@@ -114,13 +183,12 @@
       const x = sx(topPoint[0]);
       peak = `<circle data-series="${esc(topId)}" cx="${x.toFixed(1)}" cy="${sy(topPoint[1]).toFixed(1)}" r="3.2" fill="${color(topId)}"/><text data-top="1" x="${W / 2}" y="14" text-anchor="middle" fill="var(--nilan-fg,#e8eef6)" font-size="11">${esc(caption)}</text>`;
     }
-    const empty = flat.length ? '' : `<text x="${box.l + box.w / 2}" y="${box.t + box.h / 2}" text-anchor="middle" fill="var(--nilan-muted,#93a0b0)" font-size="12">${esc(opts?.empty || '')}</text>`;
-    return `<svg viewBox="0 0 ${W} ${H}" width="100%" data-chart="history" data-plot-x="${box.l}" data-plot-w="${box.w}" role="img">
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" data-chart="history" data-plot-x="${box.l}" data-plot-w="${box.w}" data-empty="${flat.length ? '0' : '1'}" role="img">
       <style>text{font-family:var(--nilan-font,Roboto,ui-sans-serif,system-ui,sans-serif)}</style>
-      ${grid}${yLabels}${xLabels}${lines}${peak}${empty}
+      ${grid}${unitLabel}${yLabels}${xLabels}${lines}${peak}
       <line data-cursor="1" x1="${box.l}" x2="${box.l}" y1="${box.t}" y2="${box.t + box.h}" stroke="var(--nilan-fg,#fff)" stroke-opacity="0.35" visibility="hidden"/>
     </svg>`;
   }
 
-  root.NilanChart = { legendLine, tooltipText, history, nearest, color, num };
+  root.NilanChart = { legendLine, tooltipText, history, nearest, color, num, parseHistory, parseStatistics };
 })(typeof globalThis === 'undefined' ? window : globalThis);

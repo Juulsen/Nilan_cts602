@@ -1,5 +1,5 @@
 /* Nilan CTS602 dashboard. Read-only in 0.3.0. No external card dependencies. */
-const NILAN_VERSION = '0.3.0';
+const NILAN_VERSION = '0.4.0';
 const NILAN_STATIC = '/nilan_cts602-static/';
 
 async function nilanLoadLibs() {
@@ -66,6 +66,12 @@ class NilanCard extends HTMLElement {
   getGridOptions() { return { columns: 12, min_columns: 6, rows: 'auto' }; }
   tr(da, en) { return this.lang() === 'da' ? da : en; }
   lang() { return String(this.config?.language || this._hass?.language || 'en').startsWith('da') ? 'da' : 'en'; }
+  hmiTheme() {
+    const choice = String(this.config?.theme || 'light');
+    if (choice === 'dark') return 'dark';
+    if (choice === 'auto') return this._hass?.themes?.darkMode === true ? 'dark' : 'light';
+    return 'light';
+  }
   comma() { return this.lang() === 'da'; }
   isAdmin() { return !!this._hass?.user?.is_admin; }
   fmt(value, digits = 1, unit = '') {
@@ -207,6 +213,7 @@ class NilanCard extends HTMLElement {
   }
   render() {
     if (!this.config) return;
+    this.dataset.hmi = this.hmiTheme();
     const root = this.shadowRoot;
     const open = root.querySelector('dialog[open]');
     if (open) return;
@@ -244,7 +251,7 @@ class NilanCard extends HTMLElement {
     if (this.tab === 'filter') this.filter(card);
     if (this.tab === 'settings') this.settings(card);
     const foot = el('div', undefined, 'footer');
-    foot.append(el('span', this.tr('Kun læsning i 0.3.0. Tryk på grafen for værdier.', 'Read-only in 0.3.0. Tap the chart for values.')));
+    foot.append(el('span', this.tr('Kun læsning i 0.4.0. Tryk på grafen for værdier.', 'Read-only in 0.4.0. Tap the chart for values.')));
     foot.append(el('span', `Juulsen · ${NILAN_VERSION}`));
     card.append(foot);
     this.ensureHistory();
@@ -252,9 +259,12 @@ class NilanCard extends HTMLElement {
   header() {
     const head = el('header');
     const brand = el('div', undefined, 'brand');
-    brand.append(el('div', 'N', 'logo'));
     const titles = el('div');
-    titles.append(el('h2', this.config.title || 'Nilan Comfort'));
+    const configured = String(this.config.title || '').trim();
+    const title = !configured || configured === 'Nilan Comfort'
+      ? 'Ventilation – Nilan Comfort 300 LR'
+      : configured;
+    titles.append(el('h2', title));
     const sample = this.entities()[0]?.[1];
     const sw = sample?.attributes.sw_version || '';
     const protocol = sample?.attributes.protocol_version;
@@ -272,7 +282,12 @@ class NilanCard extends HTMLElement {
     brand.append(titles);
     head.append(brand);
     const tools = el('div', undefined, 'head-tools');
-    if (this.on('running')) tools.append(el('div', this.tr('Kører', 'Running'), 'mode-pill'));
+    const status = el('div', undefined, 'hmi-status');
+    status.append(el('span', this.tr('Tilstand', 'State')));
+    status.append(el('b', this.stateText('control_state')));
+    status.append(el('span', this.tr('Drift', 'Run')));
+    status.append(el('b', this.on('running') ? this.tr('Drift', 'Run') : this.tr('Stop', 'Stop'), this.on('running') ? 'drift-on' : 'drift-off'));
+    tools.append(status);
     const toggle = el('div', undefined, 'view-toggle');
     toggle.setAttribute('role', 'group');
     toggle.setAttribute('aria-label', this.tr('Skift visning', 'Switch view'));
@@ -395,6 +410,10 @@ class NilanCard extends HTMLElement {
       t15Title: this.tr('T15 Panel', 'T15 Panel'),
       roomTitle: this.tr('Rum', 'Room'),
       efficiencyTitle: this.tr('Varmegenvinding', 'Heat recovery'),
+      efficiencyNote: this.tr('(T3−T4)/(T3−T8)', '(T3−T4)/(T3−T8)'),
+      bypassLabel: bypass.state === 'unknown' ? '' : bypass.chip,
+      drift: this.tr('Drift', 'Run'),
+      stopped: this.tr('Stop', 'Stop'),
       exhaust1: this.tr('Afkast', 'Exhaust'),
       exhaust2: this.tr('til det fri', 'to outside'),
       extract1: this.tr('Udsugning', 'Extract'),
@@ -414,6 +433,7 @@ class NilanCard extends HTMLElement {
       [this.tr('Setpunkt', 'Setpoint'), this.find('set_temperature') ? this.text('set_temperature') : '—', 'set_temperature'],
       [this.tr('Sommerdrift', 'Summer mode'), this.onOff('summer', this.tr('Sommer', 'Summer'), this.tr('Vinter', 'Winter')), 'summer'],
       [this.tr('Alarmer', 'Alarms'), this.onOff('alarm_active', this.tr('Alarm', 'Alarm'), this.tr('Ingen', 'None')), 'alarm_active'],
+      [this.tr('Varmegenvinding', 'Heat recovery'), this.find('efficiency') ? this.text('efficiency') : '—', 'efficiency'],
     ]));
     const bypass = this.bypassView();
     const service = [
@@ -424,12 +444,16 @@ class NilanCard extends HTMLElement {
       [this.tr('Rum', 'Room'), this.find('room_temperature') ? this.text('room_temperature') : '—', 'room_temperature'],
       [this.tr('T15 panel (loft)', 'T15 panel (loft)'), this.find('t15_panel') ? this.text('t15_panel') : '—', 't15_panel'],
     ];
-    const block = this.statusBlock(this.tr('Filter og service', 'Filter and service'), service);
+    const block = this.statusBlock(this.tr('Filter & service', 'Filter & service'), service);
     const note = el('p', this.tr(
       'T15 er føleren i betjeningspanelet. På dette anlæg sidder panelet i loftet ved aggregatet, så tallet er ikke stuetemperaturen.',
       'T15 is the sensor in the user panel. On this unit the panel is in the loft next to the ventilator, so the value is not the living-room temperature.',
     ), 'status-note');
     block.append(note);
+    block.append(el('p', this.tr(
+      'Varmegenvinding er afkastsiden (T3−T4)/(T3−T8). En lav procent om sommeren betyder at T3 og T4 ligger tæt, ofte mens bypass er åben.',
+      'Heat recovery is the exhaust side (T3−T4)/(T3−T8). A low percentage in summer means T3 and T4 are close, often while the bypass is open.',
+    ), 'status-note'));
     panel.append(block);
     card.append(panel);
   }
@@ -533,11 +557,17 @@ class NilanCard extends HTMLElement {
     }
     card.append(legend);
     const host = el('div', undefined, 'history');
+    const anyPoints = series.some((item) => (item.points || []).length);
     host.innerHTML = NilanChart.history(series, {
       comma: this.comma(),
       maxLabel: this.tr('Maks', 'Max'),
-      empty: this.tr('Ingen historik endnu. Den kommer, når Home Assistant har optaget målingerne.', 'No history yet. It appears after Home Assistant has recorded the sensors.'),
     });
+    if (this._historyAt && !anyPoints) {
+      host.append(el('p', this.tr(
+        'Ingen historik endnu. Den kommer, når Home Assistant har optaget målingerne.',
+        'No history yet. It appears after Home Assistant has recorded the sensors.',
+      ), 'chart-empty'));
+    }
     const tip = el('div', '', 'tip');
     tip.hidden = true;
     host.append(tip);
@@ -610,7 +640,7 @@ class NilanCard extends HTMLElement {
     return tile;
   }
   settings(card) {
-    card.append(el('p', this.tr('Version 0.3.0 skriver ikke til regulatoren. Tallene er de aktuelle indstillinger.', 'Version 0.3.0 does not write to the controller. These are the current settings.'), 'muted'));
+    card.append(el('p', this.tr('Version 0.4.0 skriver ikke til regulatoren. Tallene er de aktuelle indstillinger.', 'Version 0.4.0 does not write to the controller. These are the current settings.'), 'muted'));
     for (const key of NILAN_SETTINGS) {
       const match = this.find(key);
       if (!match) continue;
@@ -654,60 +684,87 @@ class NilanCard extends HTMLElement {
   async ensureHistory() {
     if (this._loadingHistory || !this._hass?.callWS) return;
     if (this._historyAt && Date.now() - this._historyAt < 60000) return;
-    const ids = ['t8_outdoor', 't3_extract', 't7_supply', 't4_exhaust', 'efficiency'].map((key) => this.find(key)?.[0]).filter(Boolean);
-    if (!ids.length) return;
+    const wanted = ['t8_outdoor', 't3_extract', 't7_supply', 't4_exhaust', 'efficiency'].map((key) => {
+      const match = this.find(key);
+      if (!match) return null;
+      return { key, entity: match[0], stateClass: match[1].attributes?.state_class || '' };
+    }).filter(Boolean);
+    if (!wanted.length) return;
     this._loadingHistory = true;
+    const end = new Date();
+    const start = new Date(Date.now() - 86400000);
     try {
-      const rows = await this._hass.callWS({
-        type: 'history/history_during_period',
-        start_time: new Date(Date.now() - 86400000).toISOString(),
-        end_time: new Date().toISOString(),
-        entity_ids: ids,
-        minimal_response: true,
-        no_attributes: true,
-      });
-      this._history = this.normalizeHistory(rows);
+      let rows = null;
+      try {
+        rows = await this._hass.callWS({
+          type: 'history/history_during_period',
+          start_time: start.toISOString(),
+          end_time: end.toISOString(),
+          entity_ids: wanted.map((item) => item.entity),
+          minimal_response: true,
+          no_attributes: true,
+          significant_changes_only: false,
+        });
+      } catch {
+        rows = null;
+      }
+      const parsed = globalThis.NilanChart ? NilanChart.parseHistory(rows) : {};
+      const missing = () => wanted.filter((item) => item.stateClass && !(parsed[item.entity] || []).length);
+      for (const period of ['5minute', 'hour']) {
+        const still = missing();
+        if (!still.length) break;
+        try {
+          const stats = await this._hass.callWS({
+            type: 'recorder/statistics_during_period',
+            start_time: start.toISOString(),
+            end_time: end.toISOString(),
+            statistic_ids: still.map((item) => item.entity),
+            period,
+            types: ['mean', 'state'],
+          });
+          const fromStats = NilanChart.parseStatistics(stats);
+          for (const item of still) {
+            if ((fromStats[item.entity] || []).length) parsed[item.entity] = fromStats[item.entity];
+          }
+        } catch { /* the next period is the fallback */ }
+      }
+      this._history = wanted.map((item) => ({ id: item.key, points: parsed[item.entity] || [] }));
       this._historyAt = Date.now();
       if (!this.shadowRoot.querySelector('dialog[open]')) this.render();
     } catch {
+      this._history = wanted.map((item) => ({ id: item.key, points: [] }));
       this._historyAt = Date.now();
     } finally {
       this._loadingHistory = false;
     }
   }
-  normalizeHistory(rows) {
-    const lists = Array.isArray(rows) ? rows : [];
-    const keys = {
-      t8_outdoor: this.find('t8_outdoor')?.[0],
-      t3_extract: this.find('t3_extract')?.[0],
-      t7_supply: this.find('t7_supply')?.[0],
-      t4_exhaust: this.find('t4_exhaust')?.[0],
-      efficiency: this.find('efficiency')?.[0],
-    };
-    return Object.entries(keys).map(([id, entity]) => {
-      const bucket = lists.find((list) => Array.isArray(list) && list.some((row) => row.entity_id === entity)) || [];
-      const points = bucket.map((row) => [Date.parse(row.last_changed || row.last_updated || ''), Number(String(row.state ?? '').replace(',', '.'))]).filter((point) => Number.isFinite(point[0]) && Number.isFinite(point[1]));
-      return { id, points };
-    });
-  }
 }
 
 const CARD_CSS = `
 :host{display:block;container-type:inline-size;width:100%;min-width:0;
-  --nilan-bg:var(--ha-card-background,var(--card-background-color,#14171c));
-  --nilan-fg:var(--primary-text-color,#e8eef6);
-  --nilan-muted:var(--secondary-text-color,#93a0b0);
-  --nilan-line:var(--divider-color,#2a3342);
-  --nilan-control:var(--secondary-background-color,#1b212b);
-  --nilan-chip:color-mix(in srgb,var(--nilan-fg) 6%,var(--nilan-bg));
-  --nilan-accent:#1f8a70;--nilan-cold:#4aa3ff;--nilan-warm:#e07a3d;--nilan-ok:#1f9d55;
-  --nilan-radius:var(--ha-card-border-radius,1.25rem);
+  --hmi-panel:#d5dee8;--hmi-panel-2:#eef3f7;--hmi-ink:#1b2830;--hmi-muted:#4c5d6b;--hmi-line:#8ea0b0;
+  --hmi-box:#ffffff;--hmi-box-line:#6d8f5e;--hmi-duct-hi:#f7fafc;--hmi-duct-mid:#c5d0d8;--hmi-duct-lo:#8b9aa6;
+  --hmi-frame:#6a7884;--hmi-drift:#2e9a4a;--hmi-drift-ink:#ffffff;
+  --nilan-bg:#e4ebf1;--nilan-fg:#1b2830;--nilan-muted:#4c5d6b;--nilan-line:#b7c3ce;
+  --nilan-control:#f4f7fa;--nilan-chip:#e7eef4;--nilan-accent:#2f6f4e;--nilan-cold:#2f7fe0;--nilan-warm:#d26520;--nilan-ok:#2e9a4a;
+  --nilan-radius:4px;
   --nilan-font:var(--ha-font-family-body,var(--paper-font-body1_-_font-family,Roboto,ui-sans-serif,system-ui,sans-serif));
   font-family:var(--nilan-font);color:var(--nilan-fg);font-size:1rem}
+:host([data-hmi="dark"]){
+  --hmi-panel:#1a232c;--hmi-panel-2:#24313b;--hmi-ink:#e7eef4;--hmi-muted:#9aabba;--hmi-line:#3c4c5c;
+  --hmi-box:#10161c;--hmi-box-line:#7ea36e;--hmi-duct-hi:#6a7884;--hmi-duct-mid:#3e4b56;--hmi-duct-lo:#1c262e;
+  --hmi-frame:#12181e;--hmi-drift:#1f8a44;--hmi-drift-ink:#ffffff;
+  --nilan-bg:#12181e;--nilan-fg:#e7eef4;--nilan-muted:#9aabba;--nilan-line:#31404e;
+  --nilan-control:#1c262e;--nilan-chip:#1a242d;--nilan-accent:#3dbe8a;--nilan-ok:#3dbe8a}
 *{box-sizing:border-box;font-family:inherit}
 ha-card{display:block;width:100%;padding:0.9rem;background:var(--nilan-bg);color:var(--nilan-fg);border-radius:var(--nilan-radius);border:1px solid var(--nilan-line);overflow:hidden}
-header{display:flex;justify-content:space-between;gap:0.5rem;align-items:center;margin-bottom:0.55rem}
-h2{font-size:1.15rem;margin:0;font-weight:650;letter-spacing:-0.01em}h3{font-size:0.82rem;margin:0.85rem 0 0.25rem;font-weight:650}
+header{display:flex;justify-content:space-between;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:0.45rem;padding:0.45rem 0.6rem;background:linear-gradient(var(--hmi-panel-2),var(--hmi-panel));border:1px solid var(--hmi-line);border-radius:2px}
+h2{font-size:1rem;margin:0;font-weight:650;letter-spacing:0}h3{font-size:0.82rem;margin:0.85rem 0 0.25rem;font-weight:650}
+.hmi-status{display:grid;grid-template-columns:auto auto;gap:2px 8px;align-items:center;font-size:0.72rem;color:var(--hmi-muted)}
+.hmi-status b{color:var(--hmi-ink);font-weight:700}
+.drift-on,.drift-off{display:inline-block;padding:0 6px;border-radius:2px;color:var(--hmi-drift-ink);line-height:1.4}
+.drift-on{background:var(--hmi-drift)}
+.drift-off{background:var(--hmi-line);color:var(--hmi-ink)}
 small,.muted{color:var(--nilan-muted)}
 .brand{display:flex;gap:10px;align-items:center;min-width:0}
 .logo{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:var(--nilan-accent);color:#04221c;font-weight:750;flex:none}
@@ -722,15 +779,15 @@ button{cursor:pointer}
 .view-toggle button.active,nav button.active{color:var(--nilan-fg)}
 nav button.active{box-shadow:inset 0 -2px 0 var(--nilan-accent)}
 .primary{background:var(--nilan-accent);color:#04221c;border-color:transparent}
-.diagram{border-radius:calc(var(--nilan-radius) - 0.25rem);overflow:hidden;background:var(--nilan-chip);margin-bottom:0.5rem}
+.diagram{border-radius:2px;overflow:hidden;background:var(--hmi-panel);border:1px solid var(--hmi-line);margin-bottom:0.5rem}
 .diagram svg{display:block;width:100%;height:auto}
 .history svg{display:block;width:100%;height:auto;max-height:220px}
 .status{display:grid;grid-template-columns:1fr;gap:0.55rem;margin:0.15rem 0 0.7rem}
-.status section{background:var(--nilan-chip);border:1px solid var(--nilan-line);border-radius:calc(var(--nilan-radius) - 0.3rem);padding:0.55rem 0.7rem 0.45rem}
+.status section{background:var(--hmi-panel-2);border:1px solid var(--hmi-line);border-radius:2px;padding:0.55rem 0.7rem 0.45rem}
 .status h3{margin:0 0 0.2rem;font-size:0.68rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--nilan-muted);font-weight:700}
 .status-row{display:flex;justify-content:space-between;align-items:center;gap:0.6rem;width:100%;padding:0.28rem 0;background:transparent;border:0;border-radius:0;text-align:left}
 .status-row span{color:var(--nilan-muted);font-size:0.78rem}
-.lcd{font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--nilan-bg) 84%,#000);color:var(--nilan-fg);border:1px solid var(--nilan-line);border-radius:0.35rem;padding:0.12rem 0.45rem;min-width:4.6rem;text-align:right;font-weight:680;font-size:0.82rem;box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 12%,transparent)}
+.lcd{font-variant-numeric:tabular-nums;background:var(--hmi-box);color:var(--hmi-ink);border:1px solid var(--hmi-box-line);border-radius:2px;padding:0.12rem 0.45rem;min-width:4.6rem;text-align:right;font-weight:680;font-size:0.82rem}
 .lcd.muted{color:var(--nilan-muted);font-weight:550}
 .status-note{margin:0.35rem 0 0.15rem;font-size:0.68rem;line-height:1.35;color:var(--nilan-muted)}
 .chips{display:flex;flex-wrap:wrap;gap:0.4rem;margin:0.5rem 0}
@@ -745,7 +802,8 @@ nav button.active{box-shadow:inset 0 -2px 0 var(--nilan-accent)}
 .legend{display:flex;flex-wrap:wrap;gap:0.45rem 0.75rem;font-size:0.75rem;margin:0.25rem 0 0.4rem;font-variant-numeric:tabular-nums}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .swatch{width:16px;height:3px;border-radius:2px;display:inline-block}
-.history{position:relative;margin-top:4px}
+.history{position:relative;margin-top:4px;max-width:100%}
+.chart-empty{margin:0.35rem 0 0;padding:0 0.15rem;color:var(--nilan-muted);font-size:0.82rem;line-height:1.4;white-space:normal;overflow-wrap:anywhere;max-width:100%}
 .tip{position:absolute;top:8px;z-index:2;pointer-events:none;background:color-mix(in srgb,var(--nilan-bg) 88%,#000);color:var(--nilan-fg);border:1px solid var(--nilan-line);padding:6px 8px;border-radius:8px;font-size:12px;white-space:pre;max-width:220px}
 .banner,.alarm-banner,.message{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px 12px;border-radius:12px;margin-bottom:10px}
 .banner{background:color-mix(in srgb,var(--nilan-accent) 16%,var(--nilan-control))}
@@ -811,7 +869,18 @@ class NilanCardEditor extends HTMLElement {
     view.value = this._config.view === 'fields' ? 'fields' : 'graphic';
     view.onchange = () => this._commit({ view: view.value });
     viewLabel.append(view);
-    root.append(language, viewLabel);
+    const themeLabel = el('label', 'Theme / tema');
+    const theme = document.createElement('select');
+    for (const [value, label] of [['light', 'HMI lys'], ['dark', 'HMI mørk'], ['auto', 'Auto']]) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      theme.append(option);
+    }
+    theme.value = this._config.theme === 'dark' || this._config.theme === 'auto' ? this._config.theme : 'light';
+    theme.onchange = () => this._commit({ theme: theme.value });
+    themeLabel.append(theme);
+    root.append(language, viewLabel, themeLabel);
   }
   _commit(patch) {
     this._config = { ...this._config, ...patch };

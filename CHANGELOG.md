@@ -4,6 +4,14 @@ All notable changes to **Nilan CTS602** are documented in this file.
 
 The project follows [Semantic Versioning](https://semver.org/). During the pre-1.0 development phase, minor releases can add entities and dashboard behaviour while the hardware interface is being verified.
 
+## [0.4.0] - 2026-10-03
+
+- The overview is an industrial HMI: two straight metal ducts, a cross-flow plate exchanger and a bypass duct beside it. The exchanger is a diamond plate pack in a housing that spans both ducts, with lamellae in two directions and the two air paths crossing. It is not a rotary wheel.
+- The card defaults to the light HMI. `theme` is `light`, `dark` or `auto` (default `light`). `auto` follows Home Assistant dark mode.
+- Heat recovery stays the exhaust-side value `(T3 − T4) / (T3 − T8)`. The plaque shows that percentage, and the bypass state is drawn on the exchanger, so a low summer value is read together with an open bypass.
+- 24-hour graphs read `history/history_during_period` with `significant_changes_only: false` and unpack the compressed `{s, lu}` / `{s, lc}` rows. Sensors with a state class fall back to `recorder/statistics_during_period` (5-minute, then hour, mean). The empty-state sentence wraps inside the card and is shown only when the fetch returned no points.
+- Still read-only. Dashboard resource: `/nilan_cts602-static/nilan-card.js?v=0.4.0`
+
 ## [0.3.0] - 2026-10-03
 
 - The overview is redrawn as a SCADA diagram: thick shaded ducts with elbows and flanges, animated flow in the bore, and a plate cross-flow exchanger. The exchanger is a beveled box with a rotated, hatched plate pack. The two air paths cross inside it and meet the ducts at the four corners.
