@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Entity plan and Modbus read blocks.
 
 Blocks stay inside documented, contiguous addresses. Registers that only
@@ -50,7 +52,7 @@ class EntitySpec:
     options_name: str | None = None
     category: str | None = None
     icon: str | None = None
-    # always | co2 | preheater | reheater | protocol9 | probe_t2 | probe_t9 | probe_t10
+    # always | co2 | preheater | reheater | reheater_water | options_board | protocol9
     when: str = "always"
     enabled: str = "yes"
 
@@ -60,6 +62,8 @@ READ_BLOCKS: tuple[ReadBlock, ...] = (
     ReadBlock("input", 200, 17),
     ReadBlock("input", 221, 2),
     ReadBlock("input", 400, 10),
+    ReadBlock("input", 105, 1, slow=True),
+    ReadBlock("input", 113, 1, slow=True),
     ReadBlock("input", 1000, 4),
     ReadBlock("input", 1100, 5, min_protocol=9),
     ReadBlock("input", 1200, 7),
@@ -144,7 +148,7 @@ ENTITIES: tuple[EntitySpec, ...] = (
     EntitySpec("cooling_setpoint", "sensor", "Cooling setpoint", "Kølesætpunkt", "enum", options_name="cool", category="diagnostic"),
     EntitySpec("cooling_fan_step", "sensor", "Cooling fan step", "Køletrin", None, None, "measurement", 0, category="diagnostic"),
     EntitySpec("user_function_1_type", "sensor", "User function 1", "Brugerfunktion 1", "enum", options_name="user", category="diagnostic"),
-    EntitySpec("user_function_2_type", "sensor", "User function 2", "Brugerfunktion 2", "enum", options_name="user", category="diagnostic"),
+    EntitySpec("user_function_2_type", "sensor", "User function 2", "Brugerfunktion 2", "enum", options_name="user", category="diagnostic", when="options_board"),
     EntitySpec("co2_high_step", "sensor", "CO₂ fan step", "CO₂ ventilatortrin", None, None, "measurement", 0, when="co2", category="diagnostic"),
     EntitySpec("co2_limit_low", "sensor", "CO₂ normal limit", "CO₂ normalgrænse", None, "ppm", "measurement", 0, when="co2", category="diagnostic"),
     EntitySpec("co2_limit_high", "sensor", "CO₂ high limit", "CO₂ høj grænse", None, "ppm", "measurement", 0, when="co2", category="diagnostic"),
@@ -159,6 +163,11 @@ ENTITIES: tuple[EntitySpec, ...] = (
     EntitySpec("user_function", "binary_sensor", "User function active", "Brugerfunktion aktiv", icon="mdi:timer-outline"),
     EntitySpec("preheater", "binary_sensor", "Preheater active", "Forvarme aktiv", when="preheater", icon="mdi:heating-coil"),
     EntitySpec("reheater", "binary_sensor", "Reheater active", "Eftervarme aktiv", when="reheater", icon="mdi:radiator"),
+    EntitySpec("circulation_pump", "binary_sensor", "Circulation pump", "Cirkulationspumpe", "running", when="reheater_water", icon="mdi:pump"),
+    EntitySpec("frost_thermostat", "binary_sensor", "Frost thermostat", "Frosttermostat", "problem", when="reheater", icon="mdi:snowflake-thermometer"),
+    EntitySpec("alarm_relay", "binary_sensor", "Alarm relay", "Alarmrelæ", when="options_board", icon="mdi:electric-switch", category="diagnostic"),
+    EntitySpec("external_heat", "binary_sensor", "External heat", "Ekstern varme", when="options_board", icon="mdi:radiator", category="diagnostic"),
+    EntitySpec("user2_input", "binary_sensor", "User function 2 input", "Indgang brugervalg 2", when="options_board", icon="mdi:import", category="diagnostic"),
 )
 
 ENTITIES_BY_KEY = {spec.key: spec for spec in ENTITIES}
@@ -186,6 +195,10 @@ def entity_included(spec: EntitySpec, *, protocol: int, plant: dict) -> bool:
         return bool(plant.get("preheater"))
     if spec.when == "reheater":
         return plant.get("reheater") not in (None, "none")
+    if spec.when == "reheater_water":
+        return plant.get("reheater") == "water"
+    if spec.when == "options_board":
+        return bool(plant.get("options_board"))
     if spec.when == "protocol9":
         return protocol >= 9
     return True
@@ -195,7 +208,7 @@ def entity_enabled_default(spec: EntitySpec, *, plant: dict, probes: dict) -> bo
     """Disabled optional sensors stay in the registry so they can be enabled."""
 
     if spec.enabled == "probe_t2":
-        return bool(probes.get("t2"))
+        return bool(probes.get("t2")) or plant.get("reheater") not in (None, "none")
     if spec.enabled == "probe_t9":
         return bool(probes.get("t9")) or plant.get("reheater") == "water"
     if spec.enabled == "probe_t10":

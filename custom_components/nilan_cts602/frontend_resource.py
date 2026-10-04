@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Point the Lovelace resource at the card shipped with this version.
 
 The collection is only updated. A missing resource is left alone, because

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Register decoding, efficiency, bypass and protocol gating."""
 
 from __future__ import annotations
@@ -40,7 +42,7 @@ from nilan_cts602.plant import normalize_plant
 from nilan_cts602.writes import (
     NEVER_WRITE_ADDRESSES,
     ForbiddenWrite,
-    WriteDisabled,
+    WriteRejected,
     assert_write_allowed,
 )
 
@@ -366,8 +368,12 @@ class WritePolicyTests(unittest.TestCase):
             assert_write_allowed(1002, [4])
         with self.assertRaises(ForbiddenWrite):
             assert_write_allowed(400, [19])
-        with self.assertRaises(WriteDisabled):
-            assert_write_allowed(1004, [2200])
+        assert_write_allowed(1004, [2200])
+        with self.assertRaises(WriteRejected):
+            assert_write_allowed(1101, [2])
+        assert_write_allowed(1101, [2], experimental_enabled=True)
+        with self.assertRaises(WriteRejected):
+            assert_write_allowed(1004, [2200], protocol=7)
 
     def test_alarm_catalog_covers_the_pdf_list(self):
         self.assertEqual(len(ALARMS), 65)

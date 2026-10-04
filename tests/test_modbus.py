@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Serialized reads, retries and the disabled write path."""
 
 from __future__ import annotations
@@ -21,6 +23,9 @@ const = types.ModuleType("homeassistant.const")
 class _Platform:
     SENSOR = "sensor"
     BINARY_SENSOR = "binary_sensor"
+    NUMBER = "number"
+    SELECT = "select"
+    BUTTON = "button"
 
 
 const.Platform = _Platform
@@ -47,6 +52,7 @@ class FakeTransport:
         self.connected = False
         self.reads = 0
         self.writes = 0
+        self.written = {}
 
     async def connect(self):
         self.connected = True
@@ -63,12 +69,18 @@ class FakeTransport:
         return _Response([13] * count)
 
     async def read_holding_registers(self, address, count, device_id):
-        return await self.read_input_registers(address, count, device_id)
+        del device_id
+        self.reads += 1
+        stored = self.written.get(address)
+        if stored is not None and len(stored) == count:
+            return _Response(stored)
+        return _Response([13] * count)
 
     async def write_registers(self, address, values, device_id):
-        del address, values, device_id
+        del device_id
         self.writes += 1
-        return _Response([0])
+        self.written[address] = [int(item) & 0xFFFF for item in values]
+        return _Response(self.written[address])
 
 
 class ModbusClientTests(unittest.TestCase):
@@ -120,9 +132,12 @@ class ModbusClientTests(unittest.TestCase):
             connection="rtu_over_tcp", host="10.0.0.30", port=502, device_id=10,
             request_delay=0, transport=transport,
         )
-        with self.assertRaises(WriteDisabled):
-            asyncio.run(client.async_write_holding_register(1004, 2200))
+        with self.assertRaises(Exception):
+            asyncio.run(client.async_write_holding_register(1007, 1))
         self.assertEqual(transport.writes, 0)
+        asyncio.run(client.async_write_holding_register(1004, 2200))
+        self.assertEqual(transport.writes, 1)
+        self.assertEqual(transport.written[1004], [2200])
 
     def test_exhausted_retries_raise(self):
         transport = FakeTransport(failures=5)

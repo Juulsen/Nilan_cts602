@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Binary sensors for a Nilan Comfort 300 LR."""
 
 from __future__ import annotations

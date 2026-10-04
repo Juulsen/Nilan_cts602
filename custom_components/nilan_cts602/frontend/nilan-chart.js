@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Juulsen
 /* Interactive history chart. No external libraries. */
 (function (root) {
   const COLORS = {

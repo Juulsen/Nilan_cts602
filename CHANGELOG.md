@@ -1,12 +1,21 @@
 # Changelog
 
-All notable changes to **Nilan CTS602** are documented in this file.
+All notable changes to **Nilan CTS602 by Juulsen** are documented in this file.
 
 The project follows [Semantic Versioning](https://semver.org/). During the pre-1.0 development phase, minor releases can add entities and dashboard behaviour while the hardware interface is being verified.
 
+## [0.5.0] - 2026-10-04
+
+- The overview is only the cross-section from Nilan's principle diagram. Outdoor air enters at the top left, exhaust air leaves at the bottom left, extract air enters at the top right and supply air leaves at the bottom right. The exchanger is a counterflow (modstrøms) hexagon that spans both ducts, with the bypass damper beside its upper corner. It is not a rotary wheel.
+- `theme` stays `light`, `dark` or `auto`. On a narrow screen the drawing scales and the values move to a grid.
+- Equipment toggles default to off: electric preheater, electric reheater, water reheater (the two reheaters exclude each other), option board and CO₂. Missing parts are not drawn and do not create entities. Plant options migrate to version 2. T0 is the sensor on the controller board. T10 is an external room sensor.
+- Settings tabs: Drift & trin, Temperatur & bypass, Fugt & luftkvalitet, Ugeprogram, Filter & alarmer, Service & konfiguration. Each setting has an explanation, the range and the register.
+- Writes are allowlisted for protocol 9 and exposed as `number`, `select` and `button` entities so automations can use them. The card writes through those entities. Only an administrator can save from the card. A confirm dialog shows the current value, the new value, the register and the risk. High risk needs an extra checkbox. The coordinator writes FC16 under the existing gateway lock, waits 0.5 s, reads the register back and logs the change. The six unconfirmed registers stay behind Experimental, which is off by default. The room setpoint step is 0.5 °C.
+- Dashboard resource: `/nilan_cts602-static/nilan-card.js?v=0.5.0`. A Home Assistant restart is required.
+
 ## [0.4.0] - 2026-10-03
 
-- The overview is an industrial HMI: two straight metal ducts, a cross-flow plate exchanger and a bypass duct beside it. The exchanger is a diamond plate pack in a housing that spans both ducts, with lamellae in two directions and the two air paths crossing. It is not a rotary wheel.
+- The overview is an industrial HMI: two straight ducts and a counterflow plate exchanger, with the bypass beside it. The exchanger spans both ducts. It is not a rotary wheel.
 - The card defaults to the light HMI. `theme` is `light`, `dark` or `auto` (default `light`). `auto` follows Home Assistant dark mode.
 - Heat recovery stays the exhaust-side value `(T3 − T4) / (T3 − T8)`. The plaque shows that percentage, and the bypass state is drawn on the exchanger, so a low summer value is read together with an open bypass.
 - 24-hour graphs read `history/history_during_period` with `significant_changes_only: false` and unpack the compressed `{s, lu}` / `{s, lc}` rows. Sensors with a state class fall back to `recorder/statistics_during_period` (5-minute, then hour, mean). The empty-state sentence wraps inside the card and is shown only when the fetch returned no points.
@@ -14,7 +23,7 @@ The project follows [Semantic Versioning](https://semver.org/). During the pre-1
 
 ## [0.3.0] - 2026-10-03
 
-- The overview is redrawn as a SCADA diagram: thick shaded ducts with elbows and flanges, animated flow in the bore, and a plate cross-flow exchanger. The exchanger is a beveled box with a rotated, hatched plate pack. The two air paths cross inside it and meet the ducts at the four corners.
+- The overview is redrawn as a SCADA diagram: thick shaded ducts with elbows and flanges, animated flow in the bore, and a counterflow plate exchanger. The exchanger spans the ducts. The two air paths cross inside it and meet the ducts at the four corners.
 - Outdoor air is blue, supply air is orange, extract air is salmon and exhaust air is grey. Round fan housings show percent and step. Filters show the days remaining. Humidity sits on the extract side.
 - Bypass is a duct under the exchanger with a damper. The label is åben, lukket, seneste kendte, åbner… or lukker…. An unknown position has no label.
 - A status panel under the diagram shows operating state, fan step, setpoint, summer mode, alarms, filter life, bypass, room temperature and T15.
@@ -32,7 +41,7 @@ The project follows [Semantic Versioning](https://semver.org/). During the pre-1
 ## [0.2.0] - 2026-10-02
 
 - Replaced the overview graphic with a P&ID schematic: thin ducts, small flow chevrons, and animated dashes while the fans run.
-- Cross-flow exchanger is a diamond with crossing channels. The bypass is a damper on its own duct, drawn open or closed.
+- Counterflow exchanger with crossing channels. The bypass is a damper on its own duct, drawn open or closed.
 - Intake and extract each have a filter symbol. A filter alarm turns them red and shows the days remaining.
 - Fan symbols show percent and step. Sensor tags sit on the ducts (`T8 Udeluft`, `T7 Indblæs`, `T3 Udsug`, `T4 Afkast`) and open history when tapped. Outdoor air on this Comfort is T8.
 - The house shows the configured room temperature. Heat recovery is a tag on the exchanger. Preheater and reheater symbols appear only when configured.
@@ -40,7 +49,7 @@ The project follows [Semantic Versioning](https://semver.org/). During the pre-1
 
 ## [0.1.1] - 2026-10-02
 
-- The cross-flow diagram fits a 390px column. The house label stays inside the frame, and arrows show supply air moving into the home and extract air moving out.
+- The counterflow diagram fits a 390px column. The house label stays inside the frame, and arrows show supply air moving into the home and extract air moving out.
 - The highest point on each graph is named, for example `Maks Udsug 22,6 °C`, instead of a bare number.
 - The card subtitle says `protokol 9` and the Modbus slave id. It no longer says `bus 9`.
 - The bypass chip says `Bypass lukket` or `Bypass åben`, the same words as the diagram.
@@ -56,7 +65,7 @@ The project follows [Semantic Versioning](https://semver.org/). During the pre-1
 - Exhaust-side heat recovery is calculated from T3, T4 and T8 and hidden when T3−T8 is below 3 K. The controller's own value stays a separate sensor.
 - Bypass on protocol 9 is latched from the damper relays so a pulse does not flicker. Protocol 11 and newer can use the position register.
 - Requests on a shared gateway are serialized, with a pause between frames, retries and a 30 second default poll. Nothing is written to the controller.
-- Dashboard card at `/nilan_cts602-static/nilan-card.js?v=0.1.0` with a cross-flow diagram, interactive history, and the tabs Overblik, Alarmer, Filter and Indstillinger.
+- Dashboard card at `/nilan_cts602-static/nilan-card.js?v=0.1.0` with a counterflow diagram, interactive history, and the tabs Overblik, Alarmer, Filter and Indstillinger.
 - Danish and English names. Writes, service mode, relay outputs and factory reset stay unavailable.
 
 ## [Unreleased]

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Nilan Comfort 300 LR with a CTS602 controller."""
 
 from __future__ import annotations
@@ -13,7 +15,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_TIMEOUT, EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 import voluptuous as vol
 
@@ -39,6 +41,7 @@ from .frontend_resource import pending_resource_updates
 from .coordinator import NilanDataUpdateCoordinator
 from .modbus_client import NilanModbusClient
 from .plant import normalize_plant
+from .writes import WriteRejected
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 _LOGGER = logging.getLogger(__name__)
@@ -75,6 +78,18 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         websocket_api.async_register_command(hass, ws_plant_get)
         websocket_api.async_register_command(hass, ws_plant_set)
         websocket_api.async_register_command(hass, ws_entities_enable)
+        if not hass.services.has_service(DOMAIN, "reset_alarm"):
+            hass.services.async_register(
+                DOMAIN,
+                "reset_alarm",
+                _async_reset_alarm,
+                schema=vol.Schema(
+                    {
+                        vol.Required("entry_id"): str,
+                        vol.Required("code"): vol.All(vol.Coerce(int), vol.Range(min=1, max=99)),
+                    }
+                ),
+            )
 
     async def _refresh_card(_event=None) -> None:
         await async_refresh_card_resource(hass)
@@ -192,6 +207,29 @@ async def ws_entities_enable(hass, connection, msg) -> None:
         registry.async_update_entity(entity_id, disabled_by=None)
         enabled.append(entity_id)
     connection.send_result(msg["id"], {"enabled": enabled})
+
+
+async def _async_reset_alarm(call) -> None:
+    """Acknowledge one alarm. The card and automations both use this service."""
+
+    hass = call.hass
+    entry = hass.config_entries.async_get_entry(call.data["entry_id"])
+    if entry is None or entry.domain != DOMAIN or entry.runtime_data is None:
+        raise HomeAssistantError("Unknown Nilan CTS602 config entry")
+    actor = "Home Assistant"
+    user_id = getattr(call.context, "user_id", None)
+    if user_id:
+        user = await hass.auth.async_get_user(user_id)
+        if user is not None and getattr(user, "name", None):
+            actor = user.name
+    try:
+        await entry.runtime_data.coordinator.async_write_setting(
+            "ctrl_reset_alarm",
+            int(call.data["code"]),
+            actor=actor,
+        )
+    except (WriteRejected, HomeAssistantError) as err:
+        raise HomeAssistantError(str(err)) from err
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: NilanConfigEntry) -> bool:
