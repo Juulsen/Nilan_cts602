@@ -332,7 +332,7 @@ class NilanCard extends HTMLElement {
       ['filter_days_left', 'Filter', 'Filter'],
       ['t15_panel', 'T15 (loft)', 'T15 (loft)'],
     ]) {
-      const tile = el('button', undefined, 'tile');
+      const tile = el('button', undefined, key === 't15_panel' ? 'tile warm' : 'tile');
       tile.type = 'button';
       tile.append(el('small', this.tr(da, en)));
       const value = key === 'bypass' ? bypass.short || '—' : key === 'filter_days_left' ? (this.num(key) == null ? '—' : `${this.fmt(this.num(key), 0)} d`) : this.text(key);
@@ -772,21 +772,21 @@ const CARD_CSS = `
   color:var(--primary-text-color,#1c2830);font-family:var(--ha-font-family-body,system-ui,sans-serif);
   --card-bg:#f4f7fa;
   --hmi-housing:#f7fafc;--hmi-box:#ffffff;--hmi-ink:#1c2830;--hmi-muted:#5c6b7a;
-  --hmi-line:#c5d0dc;--hmi-outline:#1c2830;--hmi-frame:#8aa0b4;--hmi-bore:#f4f7fb;
-  --hx-fill:#f3faf6;--hx-line:#2a6a40;
+  --hmi-line:#c5d0dc;--hmi-outline:#6e7d8c;--hmi-frame:#b7c3d0;--hmi-bore:#f4f7fb;
+  --hx-fill:#f3faf6;--hx-line:#2f8a4a;
   --plaque:#e7f6ee;--plaque-line:#2f8a4a;--panel:#fff7e8;--panel-line:#e0b15a;
-  --filter-fill:#e7f6ee;--filter-stroke:#2f8a4a;--alarm:#c4473a;--drop:#7eb7d8;
-  --flow-outdoor:#2f6fe0;--flow-extract:#e07a2f;--flow-exhaust:#7a4ea3;--flow-supply:#e07a2f
+  --filter-fill:#e5f6ee;--filter-stroke:#2f8a4a;--alarm:#c4473a;--drop:#7eb7d8;
+  --flow-outdoor:#2f6fe0;--flow-extract:#d4533a;--flow-exhaust:#6b5bd0;--flow-supply:#e08a2c
 }
 :host([data-hmi="dark"]){
   color:#e7eef4;
   --card-bg:#12181e;
   --hmi-housing:#1b222c;--hmi-box:#1b222c;--hmi-ink:#e7eef4;--hmi-muted:#b7c5d3;
-  --hmi-line:#3a4858;--hmi-outline:#c5d3e0;--hmi-frame:#6d8296;--hmi-bore:#12181e;
+  --hmi-line:#3a4858;--hmi-outline:#c5d3e0;--hmi-frame:#8aa0b4;--hmi-bore:#12181e;
   --hx-fill:#15241c;--hx-line:#8fd4a8;
   --plaque:#163228;--plaque-line:#3d9a62;--panel:#3a2e18;--panel-line:#e0b15a;
   --filter-fill:#1a3328;--filter-stroke:#8fd4a8;--alarm:#ff8d82;--drop:#8ec8e6;
-  --flow-outdoor:#7eb0ff;--flow-extract:#ffb07a;--flow-exhaust:#d2b3ef;--flow-supply:#ffb07a
+  --flow-outdoor:#7eb0ff;--flow-extract:#ff8d72;--flow-exhaust:#c4b6f5;--flow-supply:#ffb15a
 }
 ha-card{display:block;background:var(--card-bg,#f4f7fa);border-radius:18px;padding:14px 14px 8px;overflow:hidden}
 header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;min-width:0}
