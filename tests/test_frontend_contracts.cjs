@@ -134,6 +134,11 @@ assert.match(cardSource, /recorder\/statistics_during_period/);
 assert.match(cardSource, /chart-empty/);
 assert.match(cardSource, /overflow-wrap:anywhere/);
 assert.match(cardSource, /Ventilation – Nilan Comfort 300 LR/);
+assert.match(cardSource, /--hmi-housing:#1b222c/);
+assert.match(diagramSource, /var\(--hmi-housing\)/);
+assert.match(diagramSource, /var\(--hmi-ink\)/);
+assert.doesNotMatch(cardSource, /Diagram skaleres/);
+assert.match(cardSource, /themes\?\.darkMode/);
 
 assert.equal(context.NilanChart.legendLine('Ude', 12.3, '°C', true), 'Ude 12,3 °C');
 assert.equal(context.NilanChart.legendLine('Outdoor', 12.3, '°C', false), 'Outdoor 12.3 °C');

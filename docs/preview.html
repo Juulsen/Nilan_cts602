@@ -33,10 +33,12 @@
   <script src="../custom_components/nilan_cts602/frontend/nilan-card.js"></script>
   <script>
     const params = new URLSearchParams(location.search);
-    const theme = params.get('theme') === 'dark' ? 'dark' : 'light';
+    const themeParam = params.get('theme') || 'light';
+    const theme = ['light', 'dark', 'auto'].includes(themeParam) ? themeParam : 'light';
+    const darkPage = theme === 'dark' || (theme === 'auto' && params.get('dark') === '1');
     const layout = params.get('layout') === 'mobile' ? 'mobile' : 'desktop';
     const tab = params.get('tab') || 'overview';
-    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.theme = darkPage ? 'dark' : 'light';
     document.documentElement.style.setProperty('--card-width', layout === 'desktop' ? '1120px' : '390px');
 
     const LABELS = {
@@ -111,7 +113,7 @@
 
     const hass = {
       language: 'da',
-      themes: { darkMode: theme === 'dark' },
+      themes: { darkMode: darkPage },
       user: { id: 'preview', is_admin: params.get('admin') !== '0', name: 'Michael' },
       states,
       formatEntityState(stateObj) {

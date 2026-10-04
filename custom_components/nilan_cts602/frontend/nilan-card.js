@@ -245,18 +245,28 @@ class NilanCard extends HTMLElement {
     const mode = this.display('operation_mode').text;
     const step = this.display('fan_step').text;
     const alarms = this.num('alarm_count') || 0;
-    tools.append(el('span', `${this.tr('Drift', 'Run')} · ${mode} · ${this.tr('trin', 'step')} ${step} · ${alarms ? this.tr(`${alarms} alarmer`, `${alarms} alarms`) : this.tr('ingen alarmer', 'no alarms')}`, 'mode-pill'));
+    const alarmText = alarms
+      ? this.tr(`${alarms} alarmer`, `${alarms} alarms`)
+      : (this.narrow() ? 'OK' : this.tr('ingen alarmer', 'no alarms'));
+    const pill = this.narrow()
+      ? `${mode} · ${this.tr('trin', 'step')} ${step} · ${alarmText}`
+      : `${this.tr('Drift', 'Run')} · ${mode} · ${this.tr('trin', 'step')} ${step} · ${alarmText}`;
+    tools.append(el('span', pill, 'mode-pill'));
     if (this.isAdmin()) tools.append(el('span', 'Admin', 'admin'));
     head.append(brand, tools);
     card.append(head);
   }
   tabs(card) {
+    const wrap = el('div', undefined, 'tabs');
     const nav = el('nav');
     for (const [id, da, en] of NilanSettings.TABS) {
       const button = this.button(this.tr(da, en), () => { this.tab = id; this._confirm = null; this.render(); }, this.tab === id ? 'active' : '');
       nav.append(button);
     }
-    card.append(nav);
+    const fade = el('span', '›', 'tab-fade');
+    fade.setAttribute('aria-hidden', 'true');
+    wrap.append(nav, fade);
+    card.append(wrap);
   }
   footer(card) {
     const foot = el('footer');
@@ -286,6 +296,7 @@ class NilanCard extends HTMLElement {
       running: this.on('running'),
       extractSpin: this.pace(this.text('extract_fan_speed'), ''),
       supplySpin: this.pace(this.text('supply_fan_speed'), ''),
+      compact: this.narrow(),
     });
     host.querySelectorAll('[data-sensor]').forEach((node) => {
       node.style.cursor = 'pointer';
@@ -330,7 +341,6 @@ class NilanCard extends HTMLElement {
       grid.append(tile);
     }
     card.append(grid);
-    card.append(el('p', this.tr('Diagram skaleres. Værdier flyttes til et gitter under på en smal skærm.', 'The diagram scales. Values move to a grid below on a narrow screen.'), 'muted narrow-note'));
   }
   settings(card) {
     const plant = this.resolvedPlant();
@@ -757,11 +767,31 @@ function roundStep(value, step) {
 }
 
 const CARD_CSS = `
-:host{display:block;width:100%;min-width:0;container-type:inline-size;color:var(--primary-text-color,#1c2830);font-family:var(--ha-font-family-body,system-ui,sans-serif)}
-:host([data-hmi="dark"]){color:#e7eef4}
-ha-card{display:block;background:var(--ha-card-background,#f4f7fa);border-radius:18px;padding:14px 14px 8px;overflow:hidden}
-:host([data-hmi="dark"]) ha-card{background:#12181e}
-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+:host{
+  display:block;width:100%;min-width:0;container-type:inline-size;
+  color:var(--primary-text-color,#1c2830);font-family:var(--ha-font-family-body,system-ui,sans-serif);
+  --card-bg:#f4f7fa;
+  --hmi-housing:#f7fafc;--hmi-box:#ffffff;--hmi-ink:#1c2830;--hmi-muted:#5c6b7a;
+  --hmi-line:#c5d0dc;--hmi-outline:#1c2830;--hmi-frame:#8aa0b4;--hmi-bore:#f4f7fb;
+  --hx-fill:#f3faf6;--hx-line:#2a6a40;
+  --plaque:#e7f6ee;--plaque-line:#2f8a4a;--panel:#fff7e8;--panel-line:#e0b15a;
+  --filter-fill:#e7f6ee;--filter-stroke:#2f8a4a;--alarm:#c4473a;--drop:#7eb7d8;
+  --flow-outdoor:#2f6fe0;--flow-extract:#e07a2f;--flow-exhaust:#7a4ea3;--flow-supply:#e07a2f
+}
+:host([data-hmi="dark"]){
+  color:#e7eef4;
+  --card-bg:#12181e;
+  --hmi-housing:#1b222c;--hmi-box:#1b222c;--hmi-ink:#e7eef4;--hmi-muted:#b7c5d3;
+  --hmi-line:#3a4858;--hmi-outline:#c5d3e0;--hmi-frame:#6d8296;--hmi-bore:#12181e;
+  --hx-fill:#15241c;--hx-line:#8fd4a8;
+  --plaque:#163228;--plaque-line:#3d9a62;--panel:#3a2e18;--panel-line:#e0b15a;
+  --filter-fill:#1a3328;--filter-stroke:#8fd4a8;--alarm:#ff8d82;--drop:#8ec8e6;
+  --flow-outdoor:#7eb0ff;--flow-extract:#ffb07a;--flow-exhaust:#d2b3ef;--flow-supply:#ffb07a
+}
+ha-card{display:block;background:var(--card-bg,#f4f7fa);border-radius:18px;padding:14px 14px 8px;overflow:hidden}
+header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;min-width:0}
+.brand{min-width:0}
+.head-tools{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:100%}
 h2{margin:0;font-size:1.15rem} h3{margin:0 0 8px;font-size:.95rem}
 small,.muted,.explain,.meta{color:var(--secondary-text-color,#5c6b7a)}
 .explain{margin:4px 0;font-size:.86rem;line-height:1.35}
@@ -769,10 +799,16 @@ small,.muted,.explain,.meta{color:var(--secondary-text-color,#5c6b7a)}
 .mode-pill,.admin{border-radius:999px;padding:6px 10px;background:#e5f6ea;color:#14663a;font-size:.78rem;font-weight:650}
 .admin{background:#e7eef6;color:#245;margin-left:6px}
 :host([data-hmi="dark"]) .mode-pill{background:#1c3b2c;color:#b7ebc9}
-nav{display:flex;gap:6px;overflow:auto;padding:10px 0 12px}
+:host([data-hmi="dark"]) small,:host([data-hmi="dark"]) .muted,:host([data-hmi="dark"]) .explain,:host([data-hmi="dark"]) .meta{color:#b7c5d3}
+.tabs{position:relative}
+nav{display:flex;gap:6px;overflow-x:auto;padding:10px 28px 12px 0;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
 nav button{border:0;background:transparent;color:inherit;padding:8px 10px;border-radius:999px;white-space:nowrap}
 nav button.active{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08);font-weight:700}
 :host([data-hmi="dark"]) nav button.active{background:#1c2630}
+.tab-fade{display:none}
+.diagram{width:100%;min-width:0}
+.diagram svg{width:100%;height:auto;display:block}
 section{background:#fff;border:1px solid #e1e7ee;border-radius:16px;padding:14px;margin:0 0 12px}
 :host([data-hmi="dark"]) section{background:#171e27;border-color:#2a3644}
 .setting{padding:10px 0;border-top:1px solid #eef2f6}
@@ -809,16 +845,23 @@ footer{display:flex;justify-content:space-between;gap:8px;font-size:.75rem;color
 .value-grid{display:none;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .tile{text-align:left;border:1px solid #e1e7ee;background:#fff;border-radius:14px;padding:10px}
 .tile small{display:block;color:#5c6b7a} .tile strong{font-size:1.2rem}
+:host([data-narrow]) header{flex-direction:column;align-items:stretch}
+:host([data-narrow]) .head-tools{justify-content:flex-start}
+:host([data-narrow]) .mode-pill{white-space:normal;max-width:100%}
 :host([data-narrow]) .channel-value{display:none}
 :host([data-narrow]) .chips{display:none}
 :host([data-narrow]) .value-grid{display:grid}
-:host([data-narrow]) .narrow-note{display:block}
+:host([data-narrow]) .tab-fade{
+  display:flex;align-items:center;justify-content:flex-end;
+  position:absolute;right:0;top:4px;bottom:4px;width:46px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--card-bg) 58%);
+  color:var(--hmi-muted);font-weight:700;font-size:1.15rem
+}
 :host([data-hmi="dark"]) .chip,:host([data-hmi="dark"]) .tile{background:#171e27;border-color:#2a3644;color:#e7eef4}
 :host([data-hmi="dark"]) .chip.warm{background:#3a2e18;border-color:#e0b15a}
 :host([data-hmi="dark"]) .stepper input,:host([data-hmi="dark"]) select,:host([data-hmi="dark"]) .segments button,:host([data-hmi="dark"]) button.info{background:#12181e;border-color:#2a3644;color:#e7eef4}
 :host([data-hmi="dark"]) .segments button.active,:host([data-hmi="dark"]) button.primary{background:#1f8a4c;color:#fff;border-color:#1f8a4c}
 :host([data-hmi="dark"]) .badge{background:#3b2760;color:#e9d5ff}
-.narrow-note{display:none}
 .toggle{display:flex;justify-content:space-between;gap:12px;padding:8px 0;align-items:center}
 .alarm{padding:8px 0;border-top:1px solid #eef2f6}
 .history{min-height:180px}
