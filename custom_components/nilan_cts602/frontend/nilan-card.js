@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Juulsen
 /* Nilan CTS602 dashboard. Writes go through number, select and button entities. */
-const NILAN_VERSION = '0.5.0';
+const NILAN_VERSION = '0.5.1';
 const NILAN_AUTHOR = 'Juulsen';
 const NILAN_STATIC = '/nilan_cts602-static/';
 
