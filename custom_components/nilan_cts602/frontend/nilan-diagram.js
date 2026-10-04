@@ -22,7 +22,8 @@
       .big-arrow.supply{fill:var(--flow-supply)}
       .hx-hex{fill:var(--hx-fill);stroke:var(--hx-line);stroke-width:2.4}
       .hx-hatch{fill:url(#nilan-hex);stroke:none}
-      .hx-label{font-size:16px;font-weight:700;fill:var(--hmi-ink);text-anchor:middle}
+      .hx-plate{fill:var(--hmi-box);stroke:var(--hx-line);stroke-width:1.3}
+      .hx-label{font-size:15px;font-weight:700;fill:var(--hmi-ink);text-anchor:middle}
       .cts-tag{fill:var(--hmi-box);stroke:var(--hmi-line);stroke-width:1.2}
       .filter-panel{fill:var(--filter-fill);stroke:var(--filter-stroke);stroke-width:2}
       .filter-pleat{fill:none;stroke:var(--filter-stroke);stroke-width:1.3}
@@ -60,11 +61,13 @@
       .panel{stroke:var(--hmi-muted);stroke-width:1.5;stroke-dasharray:5 4}
       .swatch{fill:var(--plaque-line)}
       .leader{fill:none;stroke:var(--hmi-muted);stroke-width:1.4;stroke-dasharray:4 4}
+      .callout{fill:none;stroke:var(--hmi-muted);stroke-width:1.35}
       .damper-ring{fill:var(--hmi-box);stroke:var(--hmi-ink);stroke-width:1.8}
       .damper{fill:none;stroke:var(--hmi-ink);stroke-width:2.4;stroke-linecap:round}
       .drop{fill:var(--drop)}
       .coil{fill:none;stroke:var(--alarm);stroke-width:2.2}
-      svg.compact .hx-label{font-size:22px}
+      svg.compact .hx-label{font-size:16px}
+      svg.compact .bypass-label{font-size:14px}
       svg.compact .tag{font-size:18px}
       svg.compact .sensor-label{font-size:16px}
       svg.compact .verbose{display:none}
@@ -97,7 +100,7 @@
     <text class="tag" x="442" y="42">CTS-panel · T15</text>
     <text class="muted" x="442" y="64">loft</text>
     <text class="value-text" font-size="32" x="684" y="78" text-anchor="end" data-sensor="t15_panel">${escape(data.t15 || '—')}</text>
-    <line class="leader" x1="550" y1="120" x2="550" y2="191"/>
+    <line class="leader" x1="550" y1="120" x2="550" y2="201"/>
   </g>
   <text class="side" x="16" y="200">Udeluft</text>
   <text class="muted" x="16" y="218">fra det fri</text>
@@ -147,7 +150,7 @@
     const fit = plant || {};
     const bypass = data.bypass || 'closed';
     const filterClass = data.filterAlarm ? 'filter alarm' : 'filter';
-    const damper = bypass === 'open' ? 'M 443 118 H 467' : 'M 446 126 L 464 110';
+    const damper = bypass === 'open' ? 'M 389 72 H 411' : 'M 393 79 L 407 65';
     const stateLine = bypass === 'open'
       ? 'åben (H102/H103)'
       : bypass === 'closed'
@@ -161,9 +164,9 @@
       : fit.reheater === 'electric'
         ? coil(668, 360, 'reheater')
         : '';
-    const blue = 'M90 128 H200 C236 128 258 140 274 156 L494 348';
+    const blue = 'M90 128 H320 C336 128 348 148 360 170 L494 348';
     const orange = 'M494 348 C540 366 590 372 756 372';
-    const red = 'M670 128 H540 C508 128 492 142 486 156 L266 348';
+    const red = 'M670 128 H440 C424 128 412 148 400 170 L266 348';
     const purple = 'M266 348 C220 366 170 372 4 372';
     const dash = move
       ? `<path class="flow-dash" d="${blue}"/><path class="flow-dash" d="${orange}"/><path class="flow-dash" d="${red}"/><path class="flow-dash" d="${purple}"/>`
@@ -177,13 +180,13 @@
   <polygon class="big-arrow extract" points="750,108 698,128 750,148"/>
   <polygon class="big-arrow exhaust" points="62,352 10,372 62,392"/>
   <polygon class="big-arrow supply" points="698,352 750,372 698,392"/>
-  <rect class="housing" x="78" y="28" width="604" height="440" rx="16" data-part="housing"/>
+  <rect class="housing" x="78" y="46" width="604" height="422" rx="16" data-part="housing"/>
   <line class="split" x1="78" y1="251" x2="682" y2="251"/>
   ${pre}
-  ${longFilter(128, 40, 268, 248, filterClass, 'outdoor')}
-  <text class="tag" x="188" y="62" text-anchor="middle">${leftName}</text>
-  ${longFilter(632, 40, 492, 248, filterClass, 'extract')}
-  <text class="tag" x="572" y="62" text-anchor="middle">${rightName}</text>
+  ${longFilter(330, 74, 108, 238, filterClass, 'outdoor')}
+  <text class="tag filter-label" x="98" y="86">${leftName}</text>
+  ${longFilter(430, 74, 652, 238, filterClass, 'extract')}
+  <text class="tag filter-label" x="662" y="86" text-anchor="end">${rightName}</text>
   <polygon class="hx-hex" points="${HEX}" data-part="exchanger"/>
   <polygon class="hx-hatch" points="${HEX}"/>
   <path class="flow outdoor" data-flow="outdoor" data-part="outdoor" d="${blue}"/>
@@ -191,18 +194,20 @@
   <path class="flow extract" data-flow="extract" data-part="extract" d="${red}"/>
   <path class="flow exhaust" data-flow="exhaust" data-part="exhaust" d="${purple}"/>
   ${dash}
-  <rect class="cts-tag" x="342" y="92" width="76" height="26" rx="6"/>
-  <text class="tag" x="380" y="110" text-anchor="middle">CTS 602</text>
-  <text class="hx-label" x="380" y="268">Modstrømsveksler</text>
-  ${sensor(228, 136, 'T8', 't8_outdoor', 'outdoor', 16)}
-  ${sensor(548, 136, 'T3', 't3_extract', 'extract', 16)}
-  ${sensor(508, 176, 'RH', 'humidity', 'extract', 14)}
+  <rect class="hx-plate" x="296" y="306" width="168" height="32" rx="7"/>
+  <text class="hx-label" x="380" y="327">Modstrømsveksler</text>
+  <rect class="cts-tag" x="342" y="96" width="76" height="26" rx="6"/>
+  <text class="tag" x="380" y="114" text-anchor="middle">CTS 602</text>
+  ${sensor(306, 128, 'T8', 't8_outdoor', 'outdoor', 14)}
+  ${sensor(454, 128, 'T3', 't3_extract', 'extract', 14)}
+  ${sensor(478, 146, 'RH', 'humidity', 'extract', 13)}
   ${sensor(210, 362, 'T4', 't4_exhaust', 'exhaust', 16)}
   ${sensor(548, 362, 'T7', 't7_supply', 'supply', 16)}
-  <circle class="damper-ring" cx="455" cy="118" r="12"/>
+  <circle class="damper-ring" cx="400" cy="72" r="11"/>
   <path class="damper" d="${damper}" data-part="bypass" data-state="${bypass}"/>
-  <text class="tag bypass-label" x="478" y="52">Bypass M7</text>
-  <text class="muted bypass-label" x="478" y="70">${escape(stateLine)}</text>
+  <line class="callout" x1="452" y1="44" x2="409" y2="64"/>
+  <text class="tag bypass-label" x="462" y="24">Bypass M7</text>
+  <text class="muted bypass-label" x="462" y="40">${escape(stateLine)}</text>
   ${fan(148, 372, 'extract_fan', data.extractSpin)}
   <text class="tag" x="148" y="428" text-anchor="middle">M3 fraluft</text>
   <text class="muted" x="148" y="446" text-anchor="middle">${escape(data.m3 || '')}</text>
@@ -228,7 +233,7 @@
     const len = Math.hypot(dx, dy) || 1;
     const px = -dy / len;
     const py = dx / len;
-    const w = 24;
+    const w = 11;
     const point = (x, y) => `${x.toFixed(1)},${y.toFixed(1)}`;
     const corners = [
       point(x1 + px * w, y1 + py * w),
