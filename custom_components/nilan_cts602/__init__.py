@@ -49,6 +49,26 @@ _LOGGER = logging.getLogger(__name__)
 ENABLEABLE_KEYS = ("t2_inlet", "t9_heater", "t10_external")
 
 
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Upgrade a stored plant from version 1 to version 2.
+
+    Home Assistant calls this module-level function when the stored entry
+    is older than NilanConfigFlow.VERSION / MINOR_VERSION (1.2). A method
+    on the config flow is never called.
+    """
+
+    if entry.version == 1 and entry.minor_version < 2:
+        stored = entry.options.get(CONF_PLANT)
+        plant = normalize_plant(stored if isinstance(stored, dict) else None)
+        hass.config_entries.async_update_entry(
+            entry,
+            minor_version=2,
+            options={**entry.options, CONF_PLANT: plant},
+        )
+        _LOGGER.info("Migrated Nilan plant options to version %s", plant["version"])
+    return True
+
+
 @dataclass(slots=True)
 class NilanRuntimeData:
     """Runtime objects for one config entry."""

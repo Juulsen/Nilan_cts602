@@ -4,6 +4,11 @@ All notable changes to **Nilan CTS602 by Juulsen** are documented in this file.
 
 The project follows [Semantic Versioning](https://semver.org/). During the pre-1.0 development phase, minor releases can add entities and dashboard behaviour while the hardware interface is being verified.
 
+## [0.5.1] - 2026-10-04
+
+- Stored plant options migrate from version 1 to version 2 when Home Assistant starts. `async_migrate_entry` is a module-level function, which is the function Home Assistant calls. The config entry version stays 1.2. A version 1 plant gains separate reheater toggles, the option board and the experimental flag. The room entity and the other option keys are kept. Entries that are already 1.2 are left as they are.
+- Dashboard resource: `/nilan_cts602-static/nilan-card.js?v=0.5.1`. A Home Assistant restart is required.
+
 ## [0.5.0] - 2026-10-04
 
 - The overview follows the approved principle drawing. Grey ducts and large arrows enter and leave the housing. A horizontal line splits the housing. Two thin G4 filter panels stay inside the upper half: the outdoor filter slants from the hexagon's upper-left down to the left side of the centre line, and the extract filter mirrors it. The bypass name sits above the housing with a short leader to the damper. The exchanger name sits on a plate in the lower half of the hexagon, clear of the crossing. The counterflow exchanger is a cross-hatched hexagon with a CTS 602 tag. Blue outdoor air runs through the hexagon and leaves as orange supply air, and red extract air runs through it and leaves as purple exhaust air. Sensor circles sit on those lines. It is not a rotary wheel.

@@ -317,19 +317,6 @@ class NilanConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
         return NilanOptionsFlow()
 
-    async def async_migrate_entry(self, hass, config_entry: config_entries.ConfigEntry) -> bool:
-        """Store plant version 2: separate reheater toggles, options board, experimental."""
-
-        stored = config_entry.options.get(CONF_PLANT)
-        plant = normalize_plant(stored if isinstance(stored, dict) else None)
-        hass.config_entries.async_update_entry(
-            config_entry,
-            minor_version=2,
-            options={**config_entry.options, CONF_PLANT: plant},
-        )
-        _LOGGER.info("Migrated Nilan plant options to version %s", plant.get("version"))
-        return True
-
 
 class NilanOptionsFlow(config_entries.OptionsFlow):
     """Change the plant without opening the Modbus connection."""
