@@ -74,8 +74,8 @@ assert.equal(plant.options_board, false);
 assert.equal(plant.experimental, false);
 assert.equal(context.NilanPlant.normalize({ reheater_electric: true, reheater_water: true }).reheater, 'electric');
 
-const bare = context.NilanDiagram.markup(context.NilanPlant.normalize({}), { t8: '12,3 °C', bypass: 'closed' });
-for (const part of ['outdoor', 'supply', 'extract', 'exhaust', 'exchanger', 'supply_fan', 'extract_fan', 'filter', 'bypass']) {
+const bare = context.NilanDiagram.markup(context.NilanPlant.normalize({}), { t8: '12,3 °C', bypass: 'closed', m3: '42 %', m4: '40 %' });
+for (const part of ['exchanger', 'supply_fan', 'extract_fan', 'filter', 'bypass']) {
   assert.match(bare, new RegExp(`data-part="${part}"`));
 }
 assert.doesNotMatch(bare, /data-part="preheater"/);
@@ -87,20 +87,24 @@ assert.match(fitted, /data-state="open"/);
 assert.match(bare, /data-diagram="counterflow"/);
 assert.match(bare, /hx-hex/);
 assert.match(bare, /Modstrømsveksler/);
-assert.match(bare, /data-flow="outdoor"/);
 assert.doesNotMatch(bare, /rotary|ROT1|hx-diamond|cross-flow/);
 assert.match(bare, /Fraluft/);
 assert.match(bare, /Tilluft/);
-assert.match(bare, /M3 fraluft/);
-assert.match(bare, /M4 tilluft/);
+assert.match(bare, />Bypass</);
+assert.doesNotMatch(bare, /Bypass M7/);
+assert.doesNotMatch(bare, /M3 fraluft/);
+assert.doesNotMatch(bare, /M4 tilluft/);
+assert.doesNotMatch(bare, /flow-dash/);
+assert.doesNotMatch(bare, /CTS 602/);
+assert.match(bare, /data-part="centre-split"/);
+assert.match(bare, /42 %/);
+assert.match(bare, /40 %/);
+assert.match(diagramSource, /fill:var\(--hmi-ink\)/);
+assert.match(diagramSource, /nilan-spin/);
 assert.match(bare, /data-sensor="humidity"/);
 assert.match(bare, /Udeluft/);
 assert.match(bare, /Afkast/);
 assert.doesNotMatch(bare, />ukendt</);
-assert.match(bare, /data-flow="outdoor"/);
-assert.match(bare, /data-flow="supply"/);
-assert.match(bare, /data-flow="extract"/);
-assert.match(bare, /data-flow="exhaust"/);
 assert.equal((bare.match(/data-part="filter"/g) || []).length, 2);
 assert.match(bare, /data-sensor="t8_outdoor"/);
 assert.match(bare, /data-sensor="t7_supply"/);
