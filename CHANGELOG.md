@@ -11,6 +11,7 @@ The project follows [Semantic Versioning](https://semver.org/). During the pre-1
 - Equipment toggles default to off: electric preheater, electric reheater, water reheater (the two reheaters exclude each other), option board and CO₂. Missing parts are not drawn and do not create entities. Plant options migrate to version 2. T0 is the sensor on the controller board. T10 is an external room sensor.
 - Settings tabs: Drift & trin, Temperatur & bypass, Fugt & luftkvalitet, Ugeprogram, Filter & alarmer, Service & konfiguration. Each setting has an explanation, the range and the register.
 - Writes are allowlisted for protocol 9 and exposed as `number`, `select` and `button` entities so automations can use them. The card writes through those entities. Only an administrator can save from the card. A confirm dialog shows the current value, the new value, the register and the risk. High risk needs an extra checkbox. The coordinator writes FC16 under the existing gateway lock, waits 0.5 s, reads the register back and logs the change. The six unconfirmed registers stay behind Experimental, which is off by default. The room setpoint step is 0.5 °C.
+- A successful write is also recorded in the Home Assistant logbook when that integration is installed. Logbook is an after-dependency, not required for the ventilation card itself.
 - Dashboard resource: `/nilan_cts602-static/nilan-card.js?v=0.5.0`. A Home Assistant restart is required.
 
 ## [0.4.0] - 2026-10-03
