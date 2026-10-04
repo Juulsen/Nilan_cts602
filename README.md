@@ -8,7 +8,7 @@
 [![Validation](https://img.shields.io/github/actions/workflow/status/Juulsen/Nilan_cts602/validate.yaml?branch=main&label=HACS%20%2B%20Hassfest%20%2B%20tests)](https://github.com/Juulsen/Nilan_cts602/actions/workflows/validate.yaml)
 [![Home Assistant](https://img.shields.io/badge/Home_Assistant-2026.1.0%2B-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS custom repository](https://img.shields.io/badge/HACS-Custom_repository-41BDF5)](#installation)
-[![Project status](https://img.shields.io/badge/Status-0.5.1-orange)](#status-and-support)
+[![Project status](https://img.shields.io/badge/Status-0.5.2-orange)](#status-and-support)
 [![Local Modbus](https://img.shields.io/badge/Connection-Modbus_TCP_%7C_RTU-00897B)](#requirements)
 [![Languages](https://img.shields.io/badge/Languages-English_%7C_Dansk-blue)](#dashboard)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -16,7 +16,7 @@
 
 **Read and adjust a Nilan Comfort 300 LR with a CTS602 controller from Home Assistant, including the counterflow exchanger, filter life, alarms and confirmed settings.**
 
-An independent community project by **Juulsen**, under active testing. Not developed, supported or endorsed by Nilan. Version 0.5.1 can write an allowlist of protocol 9 settings. Donations help support development and testing.
+An independent community project by **Juulsen**, under active testing. Not developed, supported or endorsed by Nilan. Version 0.5.2 can write an allowlist of protocol 9 settings. Donations help support development and testing.
 
 ## Dansk
 
@@ -29,7 +29,7 @@ Rumtemperaturen kan ikke skrives ind i regulatoren over Modbus. T15 er brugerpan
 Efter installation sættes dashboard-ressourcen til:
 
 ```text
-/nilan_cts602-static/nilan-card.js?v=0.5.1
+/nilan_cts602-static/nilan-card.js?v=0.5.2
 ```
 
 Behold kun én Nilan-ressource. Anlægget gemmes under **Indstillinger → Enheder og tjenester → Nilan CTS602 → Konfigurer**. Guiden spørger, før den gemmer, og den skriver ikke til CTS602.
@@ -88,7 +88,7 @@ Update through HACS, or replace the complete integration folder, then restart Ho
 Add this dashboard resource as a **JavaScript module**:
 
 ```text
-/nilan_cts602-static/nilan-card.js?v=0.5.1
+/nilan_cts602-static/nilan-card.js?v=0.5.2
 ```
 
 Add a manual card:
@@ -121,9 +121,9 @@ The first time an administrator opens the card before a room entity is chosen, a
 
 ### Version 0.5.0 card
 
-Version 0.5.1 keeps this drawing. It only migrates stored plant options on startup.
+Version 0.5.2 redraws this overview: the filters meet in an inverted V, and the flow lines, exchanger name and fan names are gone. The pictures below are the 0.5.0 drawing.
 
-The overview is only the counterflow cross-section: outdoor air in at the top left, exhaust out at the bottom left, extract air in at the top right and supply air out at the bottom right. The exchanger is a hexagon spanning both ducts. Filters, the M3 extract fan, the M4 supply fan and the bypass damper are on the drawing. Tapping a value opens its history. On a narrow screen the drawing scales and the values move to a grid.
+The overview is only the counterflow cross-section: outdoor air in at the top left, exhaust out at the bottom left, extract air in at the top right and supply air out at the bottom right. The exchanger is a hexagon spanning both ducts. The filters meet above it, and the fans and the bypass damper stay on the drawing. Tapping a value opens its history. On a narrow screen the drawing scales and the values move to a grid.
 
 ![Desktop, light](docs/images/nilan-desktop-light-0.5.0.png)
 
@@ -178,7 +178,7 @@ Serial is fixed at 19200 baud, 8 data bits, even parity, 1 stop bit, which is wh
 
 ## Status and support
 
-0.5.1 writes an allowlist of protocol 9 settings with function code 16. The card asks an administrator to confirm, then the integration reads the register back. Experimental registers stay off until that option is enabled. On startup a stored plant at version 1 is migrated to version 2. A Home Assistant restart is required. After startup the integration rewrites an existing Nilan card resource to `/nilan_cts602-static/nilan-card.js?v=0.5.1`. Reload the browser so it fetches the new file.
+0.5.2 writes an allowlist of protocol 9 settings with function code 16. The card asks an administrator to confirm, then the integration reads the register back. Experimental registers stay off until that option is enabled. On startup a stored plant at version 1 is migrated to version 2. A Home Assistant restart is required. After startup the integration rewrites an existing Nilan card resource to `/nilan_cts602-static/nilan-card.js?v=0.5.2`. Reload the browser so it fetches the new file.
 
 Issues: <https://github.com/Juulsen/Nilan_cts602/issues>
 
