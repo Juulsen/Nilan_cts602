@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Polling coordinator.
 
 Fast blocks (temperatures, fans, alarms, bypass) run every cycle. Settings,
@@ -14,11 +16,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .catalog import read_blocks
-from .const import CONF_PLANT, CONF_PROTOCOL, CONF_SW_VERSION, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import CONF_PLANT, CONF_PROTOCOL, CONF_SW_VERSION, DEFAULT_SCAN_INTERVAL, DOMAIN, INTEGRATION_AUTHOR
 from .decode import BypassState, build_snapshot, next_bypass
 from .decode import restore_bypass as apply_restored_bypass
 from .modbus_client import NilanModbusClient, NilanModbusError
 from .plant import normalize_plant
+from .settings import decode_raw, describe_value, iter_settings, plan_write
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -134,7 +137,77 @@ class NilanDataUpdateCoordinator(DataUpdateCoordinator[dict]):
         )
         if not snapshot.get("sw_version"):
             snapshot["sw_version"] = self.entry.data.get(CONF_SW_VERSION)
+        plant = self._plant()
+        points = snapshot.setdefault("points", {})
+        for spec in iter_settings(plant, protocol=protocol):
+            if spec.kind == "button":
+                points[spec.key] = {
+                    "value": None,
+                    "available": True,
+                    "register": spec.register,
+                    "address": spec.address,
+                    "risk": spec.risk,
+                    "experimental": spec.experimental,
+                }
+                continue
+            if spec.address not in self._holdings:
+                points[spec.key] = {"value": None, "available": False, "register": spec.register, "address": spec.address}
+                continue
+            raw = self._holdings[spec.address]
+            points[spec.key] = {
+                "value": decode_raw(spec, raw),
+                "available": decode_raw(spec, raw) is not None,
+                "raw_value": raw,
+                "register": spec.register,
+                "address": spec.address,
+                "risk": spec.risk,
+                "experimental": spec.experimental,
+                "read_only": False,
+            }
+        snapshot["author"] = INTEGRATION_AUTHOR
         return snapshot
+
+    async def async_write_setting(self, key: str, value, *, actor: str = "") -> dict:
+        """Write one allowlisted setting and require the unit to read it back."""
+
+        plant = self._plant()
+        spec, words = plan_write(
+            key,
+            value,
+            plant=plant,
+            protocol=self.protocol,
+            holdings=self._holdings,
+        )
+        previous = None
+        if spec.address in self._holdings and spec.kind != "button":
+            previous = decode_raw(spec, self._holdings[spec.address])
+        stored = await self.client.async_write_and_read_back(
+            spec.address,
+            words,
+            experimental_enabled=bool(plant.get("experimental")),
+            protocol=self.protocol,
+            settle_seconds=0.5,
+        )
+        for offset, word in enumerate(stored):
+            self._holdings[spec.address + offset] = word
+        self.async_set_updated_data(self._snapshot(self.protocol))
+        shown = describe_value(spec, value)
+        before = describe_value(spec, previous) if previous is not None else "—"
+        who = actor or "Home Assistant"
+        message = f"{who} ændrede {spec.name_da} {before} → {shown} ({spec.register})"
+        _LOGGER.info(message)
+        self._logbook(message, spec.key)
+        return {"ok": True, "message": message, "stored": stored, "read_back": shown}
+
+    def _logbook(self, message: str, key: str) -> None:
+        try:
+            from homeassistant.components.logbook import async_log_entry
+        except Exception:
+            return
+        try:
+            async_log_entry(self.hass, INTEGRATION_AUTHOR, message, DOMAIN, f"{DOMAIN}.{key}")
+        except Exception:
+            _LOGGER.debug("Could not write the logbook entry", exc_info=True)
 
     async def async_shutdown(self) -> None:
         await super().async_shutdown()

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Pure CTS602 decoding.
 
 No Home Assistant imports. Temperatures are signed 16-bit values scaled by
@@ -520,10 +522,33 @@ def build_snapshot(
     if plant.get("reheater") not in (None, "none"):
         capacity = _get(holdings, 202)
         points["reheater_capacity"] = _point(None if capacity is None else scale_unsigned(capacity))
+        enabled = _get(holdings, 105)
         points["reheater"] = _point(
-            bool(capacity) if capacity is not None else None,
-            available=capacity is not None,
+            bool(enabled) if enabled is not None else None,
+            available=enabled is not None,
+            register="holding_105",
         )
+        frost = _get(inputs, 105)
+        points["frost_thermostat"] = _point(
+            bool(frost) if frost is not None else None,
+            available=frost is not None,
+            register="input_105",
+        )
+    if plant.get("reheater") == "water":
+        pump = _get(holdings, 104)
+        points["circulation_pump"] = _point(
+            bool(pump) if pump is not None else None,
+            available=pump is not None,
+            register="holding_104",
+        )
+    if plant.get("options_board"):
+        for key, table, address in (
+            ("external_heat", holdings, 122),
+            ("alarm_relay", holdings, 126),
+            ("user2_input", inputs, 113),
+        ):
+            raw = _get(table, address)
+            points[key] = _point(bool(raw) if raw is not None else None, available=raw is not None, register=address)
 
     flap = bypass if bypass is not None else BypassState(position=bypass_position)
     points["bypass"] = _point(

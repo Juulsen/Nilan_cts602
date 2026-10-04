@@ -11,7 +11,8 @@
       "modbus_error": "The controller returned a Modbus error.",
       "unknown": "Unexpected error. See the Home Assistant log.",
       "host_required": "Host is required for Modbus TCP and RTU over TCP.",
-      "serial_required": "Serial port is required for a direct RS485 connection."
+      "serial_required": "Serial port is required for a direct RS485 connection.",
+      "reheater_exclusive": "Electric reheater and water reheater cannot both be fitted. The CTS602 has one reheating surface."
     },
     "step": {
       "user": {
@@ -64,29 +65,35 @@
       },
       "equipment": {
         "title": "Plant",
-        "description": "The controller answered as {model}, software {software}, protocol {protocol}. Preheater, reheater, CO₂ and T10 decide which entities are created. Hardware that is not fitted is not created.",
+        "description": "The controller answered as {model}, software {software}, protocol {protocol}. Tick only the equipment that is fitted. Everything is off by default, and missing parts are not drawn and get no entities.",
         "data": {
-          "preheater": "Preheater fitted",
-          "reheater": "Reheater",
-          "co2": "CO₂ sensor fitted",
-          "t10": "T10 fitted"
+          "preheater": "Electric preheater",
+          "reheater_electric": "Electric reheater",
+          "reheater_water": "Water reheater",
+          "options_board": "Option board",
+          "co2": "CO₂ sensor",
+          "t10": "T10 external room sensor",
+          "experimental": "Experimental"
         },
         "data_description": {
-          "preheater": "Off by default. A preheater entity is created only when one is fitted.",
-          "reheater": "None, electric or water. None is the default. Water uses the heating surface (T9).",
-          "co2": "The CO₂ entity is created only when the sensor is fitted.",
-          "t10": "T10 is on the control board inside the unit. It is not the living-room temperature."
+          "preheater": "Heating element in the outdoor duct. Only status can be read on protocol 9.",
+          "reheater_electric": "Electric reheater in the supply air. Cannot be selected together with a water reheater.",
+          "reheater_water": "Water reheater with a valve and a pump. Cannot be selected together with an electric reheater.",
+          "options_board": "Adds user function 2 and the external heat offset.",
+          "co2": "CO₂ entities are created only when the sensor is fitted.",
+          "t10": "T10 is an external room sensor in an extract valve, not the sensor on the controller board. T0 is on the controller board.",
+          "experimental": "Off by default. Unlocks the six registers whose writes are not confirmed."
         }
       },
       "room": {
         "title": "Room temperature",
-        "description": "The CTS602 cannot accept an external temperature sensor over Modbus. T15 is the user panel and T10 is on the control board. On this installation the panel is in the loft next to the unit, so T15 is not the room temperature. The choice is only used for display and later Home Assistant logic.",
+        "description": "The CTS602 cannot accept an external temperature sensor over Modbus. T0 is the sensor on the controller board. T10 is an external room sensor (an accessory). T15 is the user panel. On this installation the panel is in the loft, so T15 is not the room temperature.",
         "data": {
           "room_source": "Room temperature source",
           "room_entity": "Home Assistant temperature entity"
         },
         "data_description": {
-          "room_source": "Choose T15, T10 or an existing temperature entity. The entity is not written to the controller.",
+          "room_source": "The CTS602 cannot accept an external temperature sensor over Modbus. T0 is the sensor on the controller board. T10 is an external room sensor (an accessory). T15 is the user panel. On this installation the panel is in the loft, so T15 is not the room temperature.",
           "room_entity": "Used only when the source is a Home Assistant entity."
         }
       }
@@ -110,7 +117,7 @@
     "room_source": {
       "options": {
         "t15": "T15 user panel (not necessarily the room)",
-        "t10": "T10 on the control board (inside the unit)",
+        "t10": "T10 external room sensor (accessory)",
         "entity": "Home Assistant temperature entity"
       }
     }
@@ -610,6 +617,21 @@
       },
       "reheater": {
         "name": "Reheater active"
+      },
+      "circulation_pump": {
+        "name": "Circulation pump"
+      },
+      "frost_thermostat": {
+        "name": "Frost thermostat"
+      },
+      "alarm_relay": {
+        "name": "Alarm relay"
+      },
+      "external_heat": {
+        "name": "External heat"
+      },
+      "user2_input": {
+        "name": "User function 2 input"
       }
     }
   },
@@ -617,32 +639,41 @@
     "step": {
       "equipment": {
         "title": "Plant",
-        "description": "The controller answered as {model}, software {software}, protocol {protocol}. Preheater, reheater, CO₂ and T10 decide which entities are created. Hardware that is not fitted is not created.",
+        "description": "The controller answered as {model}, software {software}, protocol {protocol}. Tick only the equipment that is fitted. Everything is off by default, and missing parts are not drawn and get no entities.",
         "data": {
-          "preheater": "Preheater fitted",
-          "reheater": "Reheater",
-          "co2": "CO₂ sensor fitted",
-          "t10": "T10 fitted"
+          "preheater": "Electric preheater",
+          "reheater_electric": "Electric reheater",
+          "reheater_water": "Water reheater",
+          "options_board": "Option board",
+          "co2": "CO₂ sensor",
+          "t10": "T10 external room sensor",
+          "experimental": "Experimental"
         },
         "data_description": {
-          "preheater": "Off by default. A preheater entity is created only when one is fitted.",
-          "reheater": "None, electric or water. None is the default. Water uses the heating surface (T9).",
-          "co2": "The CO₂ entity is created only when the sensor is fitted.",
-          "t10": "T10 is on the control board inside the unit. It is not the living-room temperature."
+          "preheater": "Heating element in the outdoor duct. Only status can be read on protocol 9.",
+          "reheater_electric": "Electric reheater in the supply air. Cannot be selected together with a water reheater.",
+          "reheater_water": "Water reheater with a valve and a pump. Cannot be selected together with an electric reheater.",
+          "options_board": "Adds user function 2 and the external heat offset.",
+          "co2": "CO₂ entities are created only when the sensor is fitted.",
+          "t10": "T10 is an external room sensor in an extract valve, not the sensor on the controller board. T0 is on the controller board.",
+          "experimental": "Off by default. Unlocks the six registers whose writes are not confirmed."
         }
       },
       "room": {
         "title": "Room temperature",
-        "description": "The CTS602 cannot accept an external temperature sensor over Modbus. T15 is the user panel and T10 is on the control board. On this installation the panel is in the loft next to the unit, so T15 is not the room temperature. The choice is only used for display and later Home Assistant logic.",
+        "description": "The CTS602 cannot accept an external temperature sensor over Modbus. T0 is the sensor on the controller board. T10 is an external room sensor (an accessory). T15 is the user panel. On this installation the panel is in the loft, so T15 is not the room temperature.",
         "data": {
           "room_source": "Room temperature source",
           "room_entity": "Home Assistant temperature entity"
         },
         "data_description": {
-          "room_source": "Choose T15, T10 or an existing temperature entity. The entity is not written to the controller.",
+          "room_source": "The CTS602 cannot accept an external temperature sensor over Modbus. T0 is the sensor on the controller board. T10 is an external room sensor (an accessory). T15 is the user panel. On this installation the panel is in the loft, so T15 is not the room temperature.",
           "room_entity": "Used only when the source is a Home Assistant entity."
         }
       }
+    },
+    "error": {
+      "reheater_exclusive": "Electric reheater and water reheater cannot both be fitted. The CTS602 has one reheating surface."
     }
   }
 }

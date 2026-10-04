@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Modbus client for a CTS602 behind a shared RS485 gateway.
 
 The Comfort on this installation shares the gateway with another controller.
@@ -34,7 +36,7 @@ from .const import (
     SERIAL_PARITY,
     SERIAL_STOPBITS,
 )
-from .writes import assert_write_allowed
+from .writes import assert_write_allowed, verify_readback
 
 class _Gateway:
     """Lock and inter-frame clock shared by every client on one bus."""
@@ -234,21 +236,57 @@ class NilanModbusClient:
             f"on slave {self.device_id}"
         ) from last_error
 
-    async def async_write_holding_register(self, address: int, value: int) -> None:
-        """FC16 with count 1. Refused entirely in version 0.1.0.
+    async def async_write_holding_register(
+        self,
+        address: int,
+        value: int,
+        *,
+        experimental_enabled: bool = False,
+        protocol: int = 9,
+    ) -> None:
+        """FC16 with count 1.
 
         The policy check runs before the gateway lock, so a refused write
         never occupies the shared bus.
         """
 
-        assert_write_allowed(address, [int(value) & 0xFFFF])
+        await self.async_write_and_read_back(
+            address,
+            [int(value) & 0xFFFF],
+            experimental_enabled=experimental_enabled,
+            protocol=protocol,
+            settle_seconds=0,
+        )
+
+    async def async_write_and_read_back(
+        self,
+        address: int,
+        values: list[int],
+        *,
+        experimental_enabled: bool = False,
+        protocol: int = 9,
+        settle_seconds: float = 0.5,
+    ) -> list[int]:
+        """FC16, then FC03 of the same words, while holding the gateway lock.
+
+        The lock is the same one the poll uses, so a poll on this gateway
+        waits until the write and the read-back have finished.
+        """
+
+        words = [int(item) & 0xFFFF for item in values]
+        assert_write_allowed(
+            address,
+            words,
+            experimental_enabled=experimental_enabled,
+            protocol=protocol,
+        )
         async with self._gateway.lock:
             await self._pause()
             try:
                 await self.async_connect()
                 response = await self.transport.write_registers(
                     address,
-                    [int(value) & 0xFFFF],
+                    words,
                     device_id=self.device_id,
                 )
             except (ModbusException, OSError, asyncio.TimeoutError) as err:
@@ -257,3 +295,14 @@ class NilanModbusClient:
                 self._mark_finished()
             if response.isError():
                 raise NilanWriteError(f"Controller rejected the write to {address}")
+            if settle_seconds > 0:
+                await asyncio.sleep(settle_seconds)
+            await self._pause()
+            try:
+                stored = await self._read_once("holding", address, len(words))
+            except (NilanModbusError, ModbusException, OSError, asyncio.TimeoutError) as err:
+                raise NilanWriteError(f"Read-back failed for holding {address}") from err
+            finally:
+                self._mark_finished()
+        verify_readback(words, stored)
+        return stored

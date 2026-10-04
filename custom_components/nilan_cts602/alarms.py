@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """CTS602 alarm list.
 
 Texts follow Nilan's alarm table. Danish labels are translations for the UI.

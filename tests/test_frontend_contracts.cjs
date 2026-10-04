@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Juulsen
 /* Card contracts without a browser. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -8,16 +10,18 @@ const root = path.join(__dirname, '../custom_components/nilan_cts602/frontend');
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../custom_components/nilan_cts602/manifest.json'), 'utf8'));
 const cardSource = fs.readFileSync(path.join(root, 'nilan-card.js'), 'utf8');
 const diagramSource = fs.readFileSync(path.join(root, 'nilan-diagram.js'), 'utf8');
+const settingsSource = fs.readFileSync(path.join(root, 'nilan-settings.js'), 'utf8');
 assert.match(cardSource, new RegExp(`const NILAN_VERSION = '${manifest.version}'`));
 assert.match(cardSource, /const NILAN_STATIC = '\/nilan_cts602-static\/'/);
 assert.match(cardSource, /\?v=\$\{NILAN_VERSION\}/);
-assert.doesNotMatch(cardSource, /callService\s*\(/);
-assert.match(cardSource, /Grafisk/);
-assert.match(cardSource, /Felter/);
-assert.match(cardSource, /Overblik/);
-assert.match(cardSource, /Alarmer/);
-assert.match(cardSource, /Filter/);
-assert.match(cardSource, /Indstillinger/);
+assert.match(cardSource, /callService\s*\(/);
+assert.match(cardSource, /NilanSettings\.TABS/);
+for (const label of ['Overblik', 'Drift & trin', 'Temperatur & bypass', 'Fugt & luftkvalitet', 'Ugeprogram', 'Filter & alarmer', 'Service & konfiguration']) {
+  assert.match(settingsSource, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+}
+assert.match(cardSource, /Gemt og genlæst/);
+assert.match(cardSource, /© \$\{NILAN_AUTHOR\} · Nilan CTS602 v\$\{NILAN_VERSION\}/);
+assert.match(cardSource, /Nilan CTS602 by Juulsen/);
 assert.match(cardSource, /protokol /);
 assert.match(cardSource, /Bypass lukket/);
 assert.match(cardSource, /Bypass åben/);
@@ -29,8 +33,11 @@ assert.doesNotMatch(cardSource, /bus \$\{protocol\}/);
 assert.doesNotMatch(cardSource, /'Veksler'/);
 assert.match(cardSource, /nilan_cts602\/plant\/set/);
 assert.match(cardSource, /confirm\(/);
-for (const file of ['nilan-card.js', 'nilan-plant.js', 'nilan-diagram.js', 'nilan-chart.js', 'nilan-wizard.js']) {
-  assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /CONCENTRATION_PARTS_PER_MILLION/);
+for (const file of ['nilan-card.js', 'nilan-plant.js', 'nilan-diagram.js', 'nilan-chart.js', 'nilan-wizard.js', 'nilan-settings.js']) {
+  const source = fs.readFileSync(path.join(root, file), 'utf8');
+  assert.doesNotMatch(source, /CONCENTRATION_PARTS_PER_MILLION/);
+  assert.match(source, /SPDX-License-Identifier: MIT/);
+  assert.match(source, /Copyright \(c\) 2026 Juulsen/);
 }
 
 class Element {
@@ -53,7 +60,7 @@ const context = vm.createContext({
   console,
 });
 context.window = context;
-for (const file of ['nilan-plant.js', 'nilan-diagram.js', 'nilan-chart.js', 'nilan-wizard.js', 'nilan-card.js']) {
+for (const file of ['nilan-plant.js', 'nilan-diagram.js', 'nilan-chart.js', 'nilan-wizard.js', 'nilan-settings.js', 'nilan-card.js']) {
   vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename: file });
 }
 
@@ -62,6 +69,10 @@ assert.equal(plant.reheater, 'none');
 assert.equal(plant.preheater, true);
 assert.equal(plant.room_source, 'entity');
 assert.equal(plant.room_entity, 'sensor.stue');
+assert.equal(plant.version, 2);
+assert.equal(plant.options_board, false);
+assert.equal(plant.experimental, false);
+assert.equal(context.NilanPlant.normalize({ reheater_electric: true, reheater_water: true }).reheater, 'electric');
 
 const bare = context.NilanDiagram.markup(context.NilanPlant.normalize({}), { t8: '12,3 °C', bypass: 'closed' });
 for (const part of ['outdoor', 'supply', 'extract', 'exhaust', 'exchanger', 'supply_fan', 'extract_fan', 'filter', 'bypass']) {
@@ -73,13 +84,15 @@ const fitted = context.NilanDiagram.markup({ preheater: true, reheater: 'electri
 assert.match(fitted, /data-part="preheater"/);
 assert.match(fitted, /data-part="reheater"/);
 assert.match(fitted, /data-state="open"/);
-assert.match(bare, /data-diagram="hmi"/);
-assert.match(bare, /hx-hatch/);
-assert.match(bare, /hx-diamond/);
-assert.match(bare, /hx-path cold/);
-assert.match(bare, /hx-path warm/);
-assert.doesNotMatch(bare, /rotary|ROT1/);
-assert.match(bare, /class="flange"/);
+assert.match(bare, /data-diagram="counterflow"/);
+assert.match(bare, /hx-hex/);
+assert.match(bare, /Modstrømsveksler/);
+assert.match(bare, /data-flow="outdoor"/);
+assert.doesNotMatch(bare, /rotary|ROT1|hx-diamond|cross-flow/);
+assert.match(bare, /Fraluft/);
+assert.match(bare, /Tilluft/);
+assert.match(bare, /M3 fraluft/);
+assert.match(bare, /M4 tilluft/);
 assert.match(bare, /data-sensor="humidity"/);
 assert.match(bare, /Udeluft/);
 assert.match(bare, /Afkast/);
@@ -114,12 +127,18 @@ for (const match of bare.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)) {
 const valueFont = Number((bare.match(/class="value-text" font-size="(\d+)"/) || [])[1]);
 assert.ok(valueFont * 390 / boxW >= 11, `value font ${valueFont} in viewBox ${boxW} is under 11px at 390px`);
 assert.match(cardSource, /data-hmi/);
+assert.match(cardSource, /significant_changes_only:\s*false/);
 assert.match(cardSource, /hmiTheme/);
 assert.match(cardSource, /significant_changes_only:\s*false/);
 assert.match(cardSource, /recorder\/statistics_during_period/);
 assert.match(cardSource, /chart-empty/);
 assert.match(cardSource, /overflow-wrap:anywhere/);
 assert.match(cardSource, /Ventilation – Nilan Comfort 300 LR/);
+assert.match(cardSource, /--hmi-housing:#1b222c/);
+assert.match(diagramSource, /var\(--hmi-housing\)/);
+assert.match(diagramSource, /var\(--hmi-ink\)/);
+assert.doesNotMatch(cardSource, /Diagram skaleres/);
+assert.match(cardSource, /themes\?\.darkMode/);
 
 assert.equal(context.NilanChart.legendLine('Ude', 12.3, '°C', true), 'Ude 12,3 °C');
 assert.equal(context.NilanChart.legendLine('Outdoor', 12.3, '°C', false), 'Outdoor 12.3 °C');

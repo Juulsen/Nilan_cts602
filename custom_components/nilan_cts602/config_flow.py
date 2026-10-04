@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Config and options flow for the Nilan CTS602 integration."""
 
 from __future__ import annotations
@@ -102,11 +104,20 @@ def _equipment_schema(plant: dict[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required("preheater", default=bool(plant.get("preheater"))): bool,
-            vol.Required("reheater", default=plant.get("reheater", "none")): _select(REHEATERS, "reheater"),
+            vol.Required("reheater_electric", default=bool(plant.get("reheater_electric"))): bool,
+            vol.Required("reheater_water", default=bool(plant.get("reheater_water"))): bool,
+            vol.Required("options_board", default=bool(plant.get("options_board"))): bool,
             vol.Required("co2", default=bool(plant.get("co2"))): bool,
             vol.Required("t10", default=bool(plant.get("t10"))): bool,
+            vol.Required("experimental", default=bool(plant.get("experimental"))): bool,
         }
     )
+
+
+def _exclusive_reheater(user_input: dict[str, Any]) -> dict[str, str]:
+    if user_input.get("reheater_electric") and user_input.get("reheater_water"):
+        return {"base": "reheater_exclusive"}
+    return {}
 
 
 def _room_schema(plant: dict[str, Any]) -> vol.Schema:
@@ -142,7 +153,7 @@ class NilanConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """UI setup. The controller is identified before the entry is created."""
 
     VERSION = 1
-    MINOR_VERSION = 1
+    MINOR_VERSION = 2
 
     def __init__(self) -> None:
         self._connection: dict[str, Any] = {}
@@ -232,13 +243,17 @@ class NilanConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_equipment(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Which heaters and sensors are fitted."""
 
+        errors: dict[str, str] = {}
         if user_input is not None:
-            self._equipment = user_input
-            return await self.async_step_room()
-        current = normalize_plant(self._equipment or None)
+            errors = _exclusive_reheater(user_input)
+            if not errors:
+                self._equipment = user_input
+                return await self.async_step_room()
+        current = normalize_plant(user_input or self._equipment or None)
         return self.async_show_form(
             step_id="equipment",
             data_schema=_equipment_schema(current),
+            errors=errors,
             description_placeholders=_placeholders(self._identity),
         )
 
@@ -302,6 +317,19 @@ class NilanConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
         return NilanOptionsFlow()
 
+    async def async_migrate_entry(self, hass, config_entry: config_entries.ConfigEntry) -> bool:
+        """Store plant version 2: separate reheater toggles, options board, experimental."""
+
+        stored = config_entry.options.get(CONF_PLANT)
+        plant = normalize_plant(stored if isinstance(stored, dict) else None)
+        hass.config_entries.async_update_entry(
+            config_entry,
+            minor_version=2,
+            options={**config_entry.options, CONF_PLANT: plant},
+        )
+        _LOGGER.info("Migrated Nilan plant options to version %s", plant.get("version"))
+        return True
+
 
 class NilanOptionsFlow(config_entries.OptionsFlow):
     """Change the plant without opening the Modbus connection."""
@@ -325,6 +353,15 @@ class NilanOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_equipment(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
+            errors = _exclusive_reheater(user_input)
+            if errors:
+                current = normalize_plant(self.config_entry.options.get(CONF_PLANT))
+                return self.async_show_form(
+                    step_id="equipment",
+                    data_schema=_equipment_schema({**current, **user_input, "reheater": "none"}),
+                    errors=errors,
+                    description_placeholders=self._placeholders(),
+                )
             self._equipment = user_input
             return await self.async_step_room()
         current = normalize_plant(self.config_entry.options.get(CONF_PLANT))

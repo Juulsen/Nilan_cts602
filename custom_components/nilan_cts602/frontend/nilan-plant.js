@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Juulsen
 /* Plant options shared by the card and the wizard. */
 (function (root) {
   const REHEATERS = ['none', 'electric', 'water'];
@@ -9,7 +11,13 @@
 
   function normalize(raw) {
     const source = raw && typeof raw === 'object' ? raw : {};
-    const reheater = REHEATERS.includes(source.reheater) ? source.reheater : 'none';
+    let electric = flag(source.reheater_electric) || source.reheater === 'electric';
+    let water = flag(source.reheater_water) || source.reheater === 'water';
+    if (electric && water) {
+      if (source.reheater === 'water' && !flag(source.reheater_electric)) electric = false;
+      else water = false;
+    }
+    const reheater = electric ? 'electric' : water ? 'water' : 'none';
     const room = SOURCES.includes(source.room_source) ? source.room_source : 'entity';
     let entity = null;
     if (typeof source.room_entity === 'string') {
@@ -17,9 +25,13 @@
       if (cleaned) entity = cleaned.slice(0, 255);
     }
     return {
-      version: 1,
+      version: 2,
       preheater: flag(source.preheater),
       reheater,
+      reheater_electric: electric,
+      reheater_water: water,
+      options_board: flag(source.options_board),
+      experimental: flag(source.experimental),
       co2: flag(source.co2),
       t10: flag(source.t10),
       room_source: room,

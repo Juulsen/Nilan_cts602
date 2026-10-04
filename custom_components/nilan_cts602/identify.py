@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Read model, protocol and software before a config entry is created."""
 
 from __future__ import annotations

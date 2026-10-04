@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Options flow without a Home Assistant install.
 
 The test job does not install homeassistant. The stubs below are only enough
@@ -32,6 +34,9 @@ if not hasattr(const, "Platform"):
     class _Platform:
         SENSOR = "sensor"
         BINARY_SENSOR = "binary_sensor"
+        NUMBER = "number"
+        SELECT = "select"
+        BUTTON = "button"
 
     const.Platform = _Platform
 

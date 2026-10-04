@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Juulsen
 /* Plant wizard. Saving asks for confirmation and is limited to administrators. */
 (function (root) {
   function open(host) {
@@ -10,7 +12,7 @@
       dialog.append(el('h2', tr('Opsæt anlæg', 'Set up plant')));
       const notes = [
         tr('Forvarme og eftervarme styrer hvilke entiteter der oprettes. Standard er ingen eftervarme.', 'Preheater and reheater decide which entities are created. The default reheater is none.'),
-        tr('CO₂ og T10 oprettes kun, hvis de er monteret. T10 sidder på styrekortet i aggregatet.', 'CO₂ and T10 are created only when fitted. T10 is on the control board inside the unit.'),
+        tr('CO₂ og T10 oprettes kun, hvis de er monteret. T0 sidder på styrekortet. T10 er en ekstern rumføler.', 'CO₂ and T10 are created only when fitted. T0 is on the controller board. T10 is an external room sensor.'),
         tr('CTS602 kan ikke modtage en ekstern føler over Modbus. T15 er panelet på loftet ved aggregatet, ikke stuetemperaturen. Valget bruges kun til visning i Home Assistant.', 'The CTS602 cannot accept an external sensor over Modbus. T15 is the panel in the loft next to the unit, not the living-room temperature. The choice is only used for display in Home Assistant.'),
       ];
       dialog.append(el('p', notes[step]));
@@ -30,7 +32,7 @@
         dialog.append(select(tr('Rumtemperatur', 'Room temperature'), [
           ['entity', tr('Entitet i Home Assistant', 'Home Assistant entity')],
           ['t15', tr('T15 panel (loft, ikke rum)', 'T15 panel (loft, not the room)')],
-          ['t10', tr('T10 styrekort (i aggregatet)', 'T10 control board (inside the unit)')],
+          ['t10', tr('T10 ekstern rumføler', 'T10 external room sensor')],
         ], draft.room_source, (value) => { draft.room_source = value; paint(); }));
         if (draft.room_source === 'entity') {
           const temperatures = Object.entries(host._hass?.states || {}).filter(([, state]) => state.attributes?.device_class === 'temperature' || /°C|ºC/.test(String(state.attributes?.unit_of_measurement || '')));

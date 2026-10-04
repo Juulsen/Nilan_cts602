@@ -1,15 +1,56 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Shared entity base for one CTS602."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_DEVICE_ID, CONF_PROTOCOL, CONF_SW_VERSION, DOMAIN, MANUFACTURER, MODEL
+from .const import (
+    CONF_DEVICE_ID,
+    CONF_PROTOCOL,
+    CONF_SW_VERSION,
+    DOMAIN,
+    INTEGRATION_AUTHOR,
+    MANUFACTURER,
+    MODEL,
+)
 from .coordinator import NilanDataUpdateCoordinator
 from .plant import ROOM_SOURCE_NOTE_DA, ROOM_SOURCE_NOTE_EN, normalize_plant
+
+
+async def write_setting(entity, value) -> dict:
+    """Write one setting and surface a refusal as a Home Assistant error."""
+
+    try:
+        return await entity.coordinator.async_write_setting(
+            entity.spec.key,
+            value,
+            actor=await actor_name(entity.hass, getattr(entity, "_context", None)),
+        )
+    except Exception as err:
+        if err.__class__.__name__ in {"WriteRejected", "ForbiddenWrite", "RangeError", "DependencyError", "ReadbackMismatch", "NilanWriteError", "NilanModbusError"}:
+            raise HomeAssistantError(str(err)) from err
+        raise
+
+
+async def actor_name(hass, context) -> str:
+    """Name of the user who started the service call, for the write log."""
+
+    user_id = getattr(context, "user_id", None)
+    if not user_id or hass is None:
+        return "Home Assistant"
+    try:
+        user = await hass.auth.async_get_user(user_id)
+    except Exception:
+        return "Home Assistant"
+    if user is None:
+        return "Home Assistant"
+    return getattr(user, "name", None) or "Home Assistant"
 
 
 def plant_from_entry(entry) -> dict:
@@ -56,6 +97,7 @@ class NilanEntity(CoordinatorEntity[NilanDataUpdateCoordinator]):
         data = self.coordinator.data if isinstance(self.coordinator.data, dict) else {}
         attributes = dict(point.get("attributes") or {})
         attributes["nilan_device"] = self._entry.entry_id
+        attributes["integration_author"] = INTEGRATION_AUTHOR
         attributes["register_key"] = self._key
         attributes["protocol_version"] = data.get("protocol", self._entry.data.get(CONF_PROTOCOL))
         attributes["sw_version"] = data.get("sw_version", self._entry.data.get(CONF_SW_VERSION))

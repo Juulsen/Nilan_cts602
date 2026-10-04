@@ -11,7 +11,8 @@
       "modbus_error": "Regulatoren returnerede en Modbus-fejl.",
       "unknown": "Uventet fejl. Se loggen i Home Assistant.",
       "host_required": "Vært skal udfyldes ved Modbus TCP og RTU over TCP.",
-      "serial_required": "Seriel port skal udfyldes ved direkte RS485."
+      "serial_required": "Seriel port skal udfyldes ved direkte RS485.",
+      "reheater_exclusive": "El-eftervarmer og vand-eftervarmer kan ikke begge være monteret. CTS602 har én eftervarmeflade."
     },
     "step": {
       "user": {
@@ -64,29 +65,35 @@
       },
       "equipment": {
         "title": "Anlæg",
-        "description": "Regulatoren svarede som {model}, software {software}, protokol {protocol}. Forvarme, eftervarme, CO₂ og T10 styrer hvilke entiteter der oprettes. Det der ikke er monteret, bliver ikke oprettet.",
+        "description": "Regulatoren svarede som {model}, software {software}, protokol {protocol}. Afkryds kun det udstyr, der er monteret. Alt er slået fra som standard, og dele der ikke er monteret, tegnes ikke og får ingen entiteter.",
         "data": {
-          "preheater": "Forvarme monteret",
-          "reheater": "Eftervarme",
-          "co2": "CO₂-føler monteret",
-          "t10": "T10 monteret"
+          "preheater": "El-forvarmer",
+          "reheater_electric": "El-eftervarmer",
+          "reheater_water": "Vand-eftervarmer",
+          "options_board": "Optionsprint",
+          "co2": "CO₂-føler",
+          "t10": "T10 ekstern rumføler",
+          "experimental": "Eksperimentel"
         },
         "data_description": {
-          "preheater": "Slået fra som standard. En forvarme-entitet oprettes kun, hvis den er monteret.",
-          "reheater": "Ingen, el eller vand. Ingen er standard. Vand bruger varmefladen (T9).",
-          "co2": "CO₂-entiteten oprettes kun, når føleren er monteret.",
-          "t10": "T10 sidder på styrekortet i aggregatet. Den er ikke stuetemperaturen."
+          "preheater": "Varmeflade i udeluftkanalen. Kun status kan læses på protokol 9.",
+          "reheater_electric": "El-eftervarmer i tilluften. Kan ikke vælges sammen med vand-eftervarmer.",
+          "reheater_water": "Vandeftervarmer med ventil og pumpe. Kan ikke vælges sammen med el-eftervarmer.",
+          "options_board": "Giver brugervalg 2 og ekstern varme-offset.",
+          "co2": "CO₂-entiteter oprettes kun når føleren er monteret.",
+          "t10": "T10 er en ekstern rumføler i en udsugningsventil, ikke føleren på styrekortet. T0 sidder på styrekortet.",
+          "experimental": "Slået fra som standard. Frigiver de seks registre, hvis skrivning ikke er bekræftet."
         }
       },
       "room": {
         "title": "Rumtemperatur",
-        "description": "CTS602 kan ikke modtage en ekstern temperaturføler over Modbus. T15 er betjeningspanelet, og T10 sidder på styrekortet. På dette anlæg hænger panelet på loftet ved aggregatet, så T15 ikke er rumtemperatur. Valget bruges kun til visning og senere logik i Home Assistant.",
+        "description": "CTS602 kan ikke modtage en ekstern temperaturføler over Modbus. T0 er føleren på styrekortet. T10 er en ekstern rumføler (tilbehør). T15 er betjeningspanelet. På dette anlæg sidder panelet på loftet, så T15 ikke er stuetemperaturen.",
         "data": {
           "room_source": "Kilde til rumtemperatur",
           "room_entity": "Temperaturentitet i Home Assistant"
         },
         "data_description": {
-          "room_source": "Vælg T15, T10 eller en eksisterende temperaturentitet. Entiteten skrives ikke til regulatoren.",
+          "room_source": "CTS602 kan ikke modtage en ekstern temperaturføler over Modbus. T0 er føleren på styrekortet. T10 er en ekstern rumføler (tilbehør). T15 er betjeningspanelet. På dette anlæg sidder panelet på loftet, så T15 ikke er stuetemperaturen.",
           "room_entity": "Bruges kun når kilden er en Home Assistant-entitet."
         }
       }
@@ -110,7 +117,7 @@
     "room_source": {
       "options": {
         "t15": "T15 betjeningspanel (ikke nødvendigvis rummet)",
-        "t10": "T10 på styrekortet (i aggregatet)",
+        "t10": "T10 ekstern rumføler (tilbehør)",
         "entity": "Temperaturentitet i Home Assistant"
       }
     }
@@ -610,6 +617,21 @@
       },
       "reheater": {
         "name": "Eftervarme aktiv"
+      },
+      "circulation_pump": {
+        "name": "Cirkulationspumpe"
+      },
+      "frost_thermostat": {
+        "name": "Frosttermostat"
+      },
+      "alarm_relay": {
+        "name": "Alarmrelæ"
+      },
+      "external_heat": {
+        "name": "Ekstern varme"
+      },
+      "user2_input": {
+        "name": "Indgang brugervalg 2"
       }
     }
   },
@@ -617,32 +639,41 @@
     "step": {
       "equipment": {
         "title": "Anlæg",
-        "description": "Regulatoren svarede som {model}, software {software}, protokol {protocol}. Forvarme, eftervarme, CO₂ og T10 styrer hvilke entiteter der oprettes. Det der ikke er monteret, bliver ikke oprettet.",
+        "description": "Regulatoren svarede som {model}, software {software}, protokol {protocol}. Afkryds kun det udstyr, der er monteret. Alt er slået fra som standard, og dele der ikke er monteret, tegnes ikke og får ingen entiteter.",
         "data": {
-          "preheater": "Forvarme monteret",
-          "reheater": "Eftervarme",
-          "co2": "CO₂-føler monteret",
-          "t10": "T10 monteret"
+          "preheater": "El-forvarmer",
+          "reheater_electric": "El-eftervarmer",
+          "reheater_water": "Vand-eftervarmer",
+          "options_board": "Optionsprint",
+          "co2": "CO₂-føler",
+          "t10": "T10 ekstern rumføler",
+          "experimental": "Eksperimentel"
         },
         "data_description": {
-          "preheater": "Slået fra som standard. En forvarme-entitet oprettes kun, hvis den er monteret.",
-          "reheater": "Ingen, el eller vand. Ingen er standard. Vand bruger varmefladen (T9).",
-          "co2": "CO₂-entiteten oprettes kun, når føleren er monteret.",
-          "t10": "T10 sidder på styrekortet i aggregatet. Den er ikke stuetemperaturen."
+          "preheater": "Varmeflade i udeluftkanalen. Kun status kan læses på protokol 9.",
+          "reheater_electric": "El-eftervarmer i tilluften. Kan ikke vælges sammen med vand-eftervarmer.",
+          "reheater_water": "Vandeftervarmer med ventil og pumpe. Kan ikke vælges sammen med el-eftervarmer.",
+          "options_board": "Giver brugervalg 2 og ekstern varme-offset.",
+          "co2": "CO₂-entiteter oprettes kun når føleren er monteret.",
+          "t10": "T10 er en ekstern rumføler i en udsugningsventil, ikke føleren på styrekortet. T0 sidder på styrekortet.",
+          "experimental": "Slået fra som standard. Frigiver de seks registre, hvis skrivning ikke er bekræftet."
         }
       },
       "room": {
         "title": "Rumtemperatur",
-        "description": "CTS602 kan ikke modtage en ekstern temperaturføler over Modbus. T15 er betjeningspanelet, og T10 sidder på styrekortet. På dette anlæg hænger panelet på loftet ved aggregatet, så T15 ikke er rumtemperatur. Valget bruges kun til visning og senere logik i Home Assistant.",
+        "description": "CTS602 kan ikke modtage en ekstern temperaturføler over Modbus. T0 er føleren på styrekortet. T10 er en ekstern rumføler (tilbehør). T15 er betjeningspanelet. På dette anlæg sidder panelet på loftet, så T15 ikke er stuetemperaturen.",
         "data": {
           "room_source": "Kilde til rumtemperatur",
           "room_entity": "Temperaturentitet i Home Assistant"
         },
         "data_description": {
-          "room_source": "Vælg T15, T10 eller en eksisterende temperaturentitet. Entiteten skrives ikke til regulatoren.",
+          "room_source": "CTS602 kan ikke modtage en ekstern temperaturføler over Modbus. T0 er føleren på styrekortet. T10 er en ekstern rumføler (tilbehør). T15 er betjeningspanelet. På dette anlæg sidder panelet på loftet, så T15 ikke er stuetemperaturen.",
           "room_entity": "Bruges kun når kilden er en Home Assistant-entitet."
         }
       }
+    },
+    "error": {
+      "reheater_exclusive": "El-eftervarmer og vand-eftervarmer kan ikke begge være monteret. CTS602 har én eftervarmeflade."
     }
   }
 }

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Juulsen
 """Constants for the Nilan CTS602 integration."""
 
 from __future__ import annotations
@@ -9,7 +11,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "nilan_cts602"
 NAME: Final = "Nilan CTS602"
-VERSION: Final = "0.4.0"
+VERSION: Final = "0.5.0"
 MANUFACTURER: Final = "Nilan"
 MODEL: Final = "Comfort 300 LR"
 INTEGRATION_AUTHOR: Final = "Juulsen"
@@ -21,6 +23,9 @@ MODEL_NAME_COMFORT: Final = "COMFORT"
 PLATFORMS: Final = (
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.BUTTON,
 )
 
 CONF_DEVICE_ID: Final = "device_id"
