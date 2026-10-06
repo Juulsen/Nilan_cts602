@@ -4,6 +4,12 @@ All notable changes to **Nilan CTS602 by Juulsen** are documented in this file.
 
 The project follows [Semantic Versioning](https://semver.org/). During the pre-1.0 development phase, minor releases can add entities and dashboard behaviour while the hardware interface is being verified.
 
+## [0.5.3] - 2026-10-06
+
+- The overview no longer rebuilds the card on every Home Assistant update. A hass tick that does not change a Nilan entity the card uses leaves the DOM alone. When a used entity changes, the diagram values, badges, fan rotation, bypass state and tiles are patched in place. A full render happens on a tab change, a config change, a dialog, or when the plant structure changes. The history request waits five minutes, or until the history dialog is opened, and the chart keeps a fixed height. The content area keeps its last height so a re-render does not collapse and jump the page. The tab bar keeps its scroll position.
+- The overview is a larger single-line schematic. Housing, filters, the exchanger and the ducts are outlines. Each duct is one coloured line with an arrowhead: outdoor blue, extract red, exhaust purple, supply orange. Temperatures sit on the drawing in a large font. On a narrow screen the drawing uses the card width. On a wide screen the housing takes most of the card, and heat recovery and T15 stay in a short strip. Fan spin and the bypass state stay. Light, dark and auto still use the theme colours.
+- Dashboard resource: `/nilan_cts602-static/nilan-card.js?v=0.5.3`. A Home Assistant restart is required.
+
 ## [0.5.2] - 2026-10-04
 
 - The overview follows the edited drawing. The filters form an inverted V over the exchanger. The flow lines, the CTS 602 tag, the exchanger name plate, the filter names and the fan names are gone. The hexagon and its hatch stay. Bypass reads "Bypass", with the state on the line below, and the damper sits under the filter apex. The sensor badges and the fans use the positions from that drawing. A vertical split runs through the housing in the theme split colour. On a wide screen the T15 panel is shorter and the temperature sits beside the label. Fan speed stays above each fan. The fans still spin with the speed. On a narrow screen that speed is 16px.

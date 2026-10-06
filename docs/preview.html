@@ -173,6 +173,23 @@
 
     whenReady(() => {
       document.body.dataset.ready = '1';
+      if (params.get('measure') === '1') {
+        const svg = card.shadowRoot.querySelector('svg');
+        const box = svg.viewBox.baseVal;
+        const scale = svg.getBoundingClientRect().width / box.width;
+        const sample = (selector) => {
+          const node = svg.querySelector(selector);
+          const size = Number(getComputedStyle(node).fontSize.replace('px', ''));
+          return { raw: size, rendered: Math.round(size * scale * 10) / 10 };
+        };
+        document.body.dataset.measure = JSON.stringify({
+          svg: Math.round(svg.getBoundingClientRect().width),
+          temp: sample('.duct-temp'),
+          badge: sample('.sensor-label'),
+          fan: sample('.fan-speed'),
+          bypass: sample('.tag'),
+        });
+      }
     });
   </script>
 </body>

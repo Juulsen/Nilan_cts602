@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Juulsen
 /* Nilan CTS602 dashboard. Writes go through number, select and button entities. */
-const NILAN_VERSION = '0.5.2';
+const NILAN_VERSION = '0.5.3';
 const NILAN_AUTHOR = 'Juulsen';
 const NILAN_STATIC = '/nilan_cts602-static/';
+const HISTORY_REFRESH_MS = 300000;
 
 async function nilanLoadLibs() {
   if (globalThis.NilanPlant && globalThis.NilanDiagram && globalThis.NilanChart && globalThis.NilanWizard && globalThis.NilanSettings) return;
@@ -52,16 +53,52 @@ class NilanCard extends HTMLElement {
     }
   }
   set hass(hass) {
+    const previous = this._hass;
     this._hass = hass;
     if (!this._asked && hass) {
       this._asked = true;
       this.loadPlant();
     }
+    if (!this._libs) return;
+    if (this._painted && !this.entitiesChanged(previous)) return;
     if (this._overlay) {
       this.refreshLive();
       return;
     }
+    if (this._painted && !this.structureChanged()) {
+      this.patchLive();
+      return;
+    }
     this.render();
+  }
+  nilanStates(hass) {
+    const states = hass?.states || {};
+    const listed = Object.entries(states).filter(([, state]) => state?.attributes?.nilan_device);
+    const anchorId = this.config?.entity;
+    const anchor = states[anchorId];
+    const ids = [...new Set(listed.map(([, state]) => state.attributes.nilan_device))];
+    const device = anchor?.attributes?.nilan_device || this.config?.device || (ids.length === 1 ? ids[0] : null);
+    const out = {};
+    for (const [id, state] of listed) {
+      if (device && state.attributes.nilan_device === device) out[id] = state;
+    }
+    return out;
+  }
+  entitiesChanged(previous) {
+    if (!previous) return true;
+    const before = this.nilanStates(previous);
+    const after = this.nilanStates(this._hass);
+    const ids = new Set([...Object.keys(before), ...Object.keys(after)]);
+    for (const id of ids) {
+      if (before[id] !== after[id]) return true;
+    }
+    return false;
+  }
+  structureChanged() {
+    return this.hmiTheme() !== this._paintedTheme
+      || this.narrow() !== this._paintedNarrow
+      || this.tab !== this._paintedTab
+      || JSON.stringify(this.resolvedPlant()) !== this._paintedPlant;
   }
   getCardSize() { return this.tab === 'overview' ? 12 : 8; }
   getGridOptions() { return { columns: 12, min_columns: 6, rows: 'auto' }; }
@@ -150,11 +187,56 @@ class NilanCard extends HTMLElement {
       if (!this._overlay) this.render();
     } catch { /* the card still renders from entities */ }
   }
+  liveText(key) {
+    if (key === 'fmt:bypass') return this.bypassView().short || '—';
+    if (key === 'fmt:status') return this.statusPill();
+    if (key === 'fmt:filter') {
+      const left = this.num('filter_days_left');
+      return left == null ? '—' : `${this.fmt(left, 0)} d`;
+    }
+    if (key === 'fmt:season') return this.on('summer') ? this.tr('Sommer', 'Summer') : this.tr('Vinter', 'Winter');
+    const shown = this.display(key);
+    return shown.unit ? `${shown.text} ${shown.unit}` : shown.text;
+  }
+  applyLive(node) {
+    node.textContent = this.liveText(node.dataset.live);
+  }
   refreshLive() {
-    this.shadowRoot.querySelectorAll('[data-live]').forEach((node) => {
-      const shown = this.display(node.dataset.live);
-      node.textContent = shown.unit ? `${shown.text} ${shown.unit}` : shown.text;
-    });
+    this.shadowRoot.querySelectorAll('[data-live]').forEach((node) => this.applyLive(node));
+  }
+  patchLive() {
+    const root = this.shadowRoot;
+    if (!root?.querySelectorAll) return;
+    this.refreshLive();
+    const bypass = this.bypassView();
+    const damper = root.querySelector('[data-part="bypass"]');
+    if (damper) {
+      damper.setAttribute('data-state', bypass.state);
+      const open = damper.getAttribute('data-open');
+      const closed = damper.getAttribute('data-closed');
+      if (bypass.state === 'open' && open) damper.setAttribute('d', open);
+      else if (bypass.state === 'closed' && closed) damper.setAttribute('d', closed);
+    }
+    const filterClass = this.on('filter') ? 'filter alarm' : 'filter';
+    root.querySelectorAll('[data-part="filter"]').forEach((node) => node.setAttribute('class', filterClass));
+    for (const [part, key] of [['extract_fan', 'extract_fan_speed'], ['supply_fan', 'supply_fan_speed']]) {
+      const node = root.querySelector(`[data-part="${part}"]`);
+      if (!node) continue;
+      const spin = this.pace(this.text(key), '');
+      if (spin) node.setAttribute('style', `animation-duration:${spin}s`);
+      else node.removeAttribute('style');
+    }
+  }
+  statusPill() {
+    const mode = this.display('operation_mode').text;
+    const step = this.display('fan_step').text;
+    const alarms = this.num('alarm_count') || 0;
+    const alarmText = alarms
+      ? this.tr(`${alarms} alarmer`, `${alarms} alarms`)
+      : (this.narrow() ? 'OK' : this.tr('ingen alarmer', 'no alarms'));
+    return this.narrow()
+      ? `${mode} · ${this.tr('trin', 'step')} ${step} · ${alarmText}`
+      : `${this.tr('Drift', 'Run')} · ${mode} · ${this.tr('trin', 'step')} ${step} · ${alarmText}`;
   }
   pace(pct, step) {
     let speed = null;
@@ -203,6 +285,13 @@ class NilanCard extends HTMLElement {
   render() {
     const root = this.shadowRoot;
     const theme = this.hmiTheme();
+    const nav = root.querySelector?.('nav');
+    const tabScroll = nav?.scrollLeft || 0;
+    const previousStage = root.querySelector?.('.stage');
+    if (previousStage && typeof previousStage.getBoundingClientRect === 'function') {
+      const height = previousStage.getBoundingClientRect().height;
+      if (height > 80) this._stageMin = height;
+    }
     root.replaceChildren();
     const style = el('style');
     style.textContent = CARD_CSS;
@@ -216,15 +305,25 @@ class NilanCard extends HTMLElement {
     else {
       this.header(card);
       this.tabs(card);
-      if (this._notice) card.append(el('p', this._notice.text, this._notice.ok ? 'saved' : 'error'));
-      if (this.tab === 'overview') this.overview(card);
-      else if (this.tab === 'filter') this.alarms(card);
-      else if (this.tab === 'week') this.week(card);
-      else if (this.tab === 'service') this.service(card);
-      else this.settings(card);
+      const stage = el('div', undefined, 'stage');
+      if (this._stageMin) stage.style.minHeight = `${this._stageMin}px`;
+      if (this._notice) stage.append(el('p', this._notice.text, this._notice.ok ? 'saved' : 'error'));
+      if (this.tab === 'overview') this.overview(stage);
+      else if (this.tab === 'filter') this.alarms(stage);
+      else if (this.tab === 'week') this.week(stage);
+      else if (this.tab === 'service') this.service(stage);
+      else this.settings(stage);
+      card.append(stage);
       this.footer(card);
     }
     root.append(style, card);
+    const nextNav = root.querySelector('nav');
+    if (nextNav) nextNav.scrollLeft = tabScroll;
+    this._painted = true;
+    this._paintedTheme = theme;
+    this._paintedNarrow = this.narrow();
+    this._paintedTab = this.tab;
+    this._paintedPlant = JSON.stringify(this.resolvedPlant());
     if (this.config?.demoConfirm && globalThis.NilanSettings) {
       const sample = NilanSettings.SETTINGS.find((item) => item.key === 'ctrl_fan_step');
       if (sample) this.openConfirm(sample, '3');
@@ -242,16 +341,9 @@ class NilanCard extends HTMLElement {
     title.append(el('small', `CTS602 · protokol ${protocol}${software ? ` · SW ${software}` : ''} · slave 10`));
     brand.append(title);
     const tools = el('div', undefined, 'head-tools');
-    const mode = this.display('operation_mode').text;
-    const step = this.display('fan_step').text;
-    const alarms = this.num('alarm_count') || 0;
-    const alarmText = alarms
-      ? this.tr(`${alarms} alarmer`, `${alarms} alarms`)
-      : (this.narrow() ? 'OK' : this.tr('ingen alarmer', 'no alarms'));
-    const pill = this.narrow()
-      ? `${mode} · ${this.tr('trin', 'step')} ${step} · ${alarmText}`
-      : `${this.tr('Drift', 'Run')} · ${mode} · ${this.tr('trin', 'step')} ${step} · ${alarmText}`;
-    tools.append(el('span', pill, 'mode-pill'));
+    const pill = el('span', this.statusPill(), 'mode-pill');
+    pill.dataset.live = 'fmt:status';
+    tools.append(pill);
     if (this.isAdmin()) tools.append(el('span', 'Admin', 'admin'));
     head.append(brand, tools);
     card.append(head);
@@ -308,16 +400,18 @@ class NilanCard extends HTMLElement {
     const bypassChip = bypass.state === 'closed' ? this.tr('Lukket', 'Closed') : bypass.state === 'open' ? this.tr('Åben', 'Open') : (bypass.short || '—');
     const filterLeft = this.num('filter_days_left');
     const chipRows = [
-      [this.tr('Fugt (RH, fraluft)', 'Humidity (RH, extract)'), this.text('humidity'), ''],
-      [this.tr('Bypass M7', 'Bypass M7'), bypassChip, ''],
-      [this.tr('Filter, dage til skift', 'Filter, days to change'), filterLeft == null ? '—' : `${this.fmt(filterLeft, 0)} d`, ''],
-      [this.tr('Setpunkt', 'Setpoint'), this.text('set_temperature'), ''],
-      [this.tr('T15 panel (loft)', 'T15 panel (loft)'), this.text('t15_panel'), 'warm'],
-      [this.tr('Sommer/vinter', 'Summer/winter'), season, ''],
+      [this.tr('Fugt (RH, fraluft)', 'Humidity (RH, extract)'), this.text('humidity'), '', 'humidity'],
+      [this.tr('Bypass M7', 'Bypass M7'), bypassChip, '', 'fmt:bypass'],
+      [this.tr('Filter, dage til skift', 'Filter, days to change'), filterLeft == null ? '—' : `${this.fmt(filterLeft, 0)} d`, '', 'fmt:filter'],
+      [this.tr('Setpunkt', 'Setpoint'), this.text('set_temperature'), '', 'set_temperature'],
+      [this.tr('T15 panel (loft)', 'T15 panel (loft)'), this.text('t15_panel'), 'warm', 't15_panel'],
+      [this.tr('Sommer/vinter', 'Summer/winter'), season, '', 'fmt:season'],
     ];
-    for (const [label, value, cls] of chipRows) {
+    for (const [label, value, cls, live] of chipRows) {
       const chip = el('div', undefined, `chip ${cls}`.trim());
-      chip.append(el('small', label), el('strong', value));
+      const strong = el('strong', value);
+      strong.dataset.live = live;
+      chip.append(el('small', label), strong);
       chips.append(chip);
     }
     card.append(chips);
@@ -336,7 +430,9 @@ class NilanCard extends HTMLElement {
       tile.type = 'button';
       tile.append(el('small', this.tr(da, en)));
       const value = key === 'bypass' ? bypass.short || '—' : key === 'filter_days_left' ? (this.num(key) == null ? '—' : `${this.fmt(this.num(key), 0)} d`) : this.text(key);
-      tile.append(el('strong', value));
+      const strong = el('strong', value);
+      strong.dataset.live = key === 'bypass' ? 'fmt:bypass' : key === 'filter_days_left' ? 'fmt:filter' : key;
+      tile.append(strong);
       if (key !== 'bypass') tile.onclick = () => this.openHistory(key);
       grid.append(tile);
     }
@@ -706,7 +802,7 @@ class NilanCard extends HTMLElement {
   }
   async ensureHistory() {
     if (this._loadingHistory || !this._hass?.callWS) return;
-    if (this._historyAt && Date.now() - this._historyAt < 60000) return;
+    if (this._historyAt && Date.now() - this._historyAt < HISTORY_REFRESH_MS) return;
     const wanted = ['t8_outdoor', 't3_extract', 't7_supply', 't4_exhaust', 'efficiency', 'humidity', 't15_panel'].map((key) => {
       const match = this.find(key);
       if (!match) return null;
@@ -807,7 +903,8 @@ nav button{border:0;background:transparent;color:inherit;padding:8px 10px;border
 nav button.active{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08);font-weight:700}
 :host([data-hmi="dark"]) nav button.active{background:#1c2630}
 .tab-fade{display:none}
-.diagram{width:100%;min-width:0}
+.stage{min-height:360px}
+.diagram{width:100%;min-width:0;min-height:240px}
 .diagram svg{width:100%;height:auto;display:block}
 section{background:#fff;border:1px solid #e1e7ee;border-radius:16px;padding:14px;margin:0 0 12px}
 :host([data-hmi="dark"]) section{background:#171e27;border-color:#2a3644}
@@ -864,7 +961,7 @@ footer{display:flex;justify-content:space-between;gap:8px;font-size:.75rem;color
 :host([data-hmi="dark"]) .badge{background:#3b2760;color:#e9d5ff}
 .toggle{display:flex;justify-content:space-between;gap:12px;padding:8px 0;align-items:center}
 .alarm{padding:8px 0;border-top:1px solid #eef2f6}
-.history{min-height:180px}
+.history{height:180px;min-height:180px;overflow:hidden}
 .chart-empty{margin:8px 0;color:#5c6b7a}
 .info{width:28px;height:28px;border-radius:50%;padding:0}
 .check{display:flex;gap:8px;align-items:center;margin:8px 0}
