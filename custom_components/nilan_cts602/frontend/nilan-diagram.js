@@ -68,7 +68,8 @@
       tempBottom: 548,
       nameTop: 138,
       nameBottom: 582,
-      bypassY: 118,
+      bypassY: 58,
+      damperY: 128,
       xL: 16,
       xR: 1084,
       ductIn: 210,
@@ -76,7 +77,7 @@
       name: 16,
       badge: 20,
       badgeR: 18,
-      fanR: 26,
+      fanRadius: 26,
       fanText: 18,
       bypass: 18,
     };
@@ -85,27 +86,32 @@
   function phone() {
     return {
       compact: true,
-      vb: '0 0 500 470',
-      housing: [28, 128, 444, 286],
-      splitY: 270,
-      centreX: 250,
-      yIn: 172,
-      yOut: 360,
-      tempTop: 66,
-      tempBottom: 432,
-      nameTop: 40,
-      nameBottom: 456,
-      bypassY: 92,
-      xL: 8,
-      xR: 492,
-      ductIn: 118,
-      temp: 28,
-      name: 13,
-      badge: 20,
-      badgeR: 16,
-      fanR: 18,
-      fanText: 22,
-      bypass: 20,
+      vb: '0 0 340 500',
+      housing: [4, 112, 332, 292],
+      splitY: 258,
+      centreX: 170,
+      yIn: 168,
+      yOut: 352,
+      tempTop: 52,
+      tempBottom: 438,
+      nameTop: 24,
+      nameBottom: 468,
+      bypassY: 76,
+      damperY: 142,
+      xL: 12,
+      xR: 328,
+      ductIn: 52,
+      fanLeft: 32,
+      fanRight: 308,
+      t4x: 108,
+      t7x: 232,
+      temp: 24,
+      name: 14,
+      badge: 16,
+      badgeR: 13,
+      fanRadius: 14,
+      fanText: 15,
+      bypass: 16,
     };
   }
 
@@ -143,14 +149,14 @@
   <line class="duct extract" x1="${box.xR}" y1="${box.yIn}" x2="${right - (box.ductIn - hx)}" y2="${box.yIn}" marker-end="url(#arr-extract)"/>
   <line class="duct exhaust" x1="${box.ductIn}" y1="${box.yOut}" x2="${box.xL}" y2="${box.yOut}" marker-end="url(#arr-exhaust)"/>
   <line class="duct supply" x1="${right - (box.ductIn - hx)}" y1="${box.yOut}" x2="${box.xR}" y2="${box.yOut}" marker-end="url(#arr-supply)"/>
-  ${sensor(box.centreX - box.badgeR * 4.2, box.yIn + 8, 'T8', 't8_outdoor', 'outdoor', box)}
-  ${sensor(box.centreX + box.badgeR * 3.2, box.yIn + 8, 'T3', 't3_extract', 'extract', box)}
-  ${sensor(box.centreX + box.badgeR * 6.1, box.yIn + box.badgeR * 2.6, 'RH', 'humidity', 'extract', box)}
-  ${sensor(box.centreX - box.badgeR * 5.2, box.yOut - box.badgeR * 1.1, 'T4', 't4_exhaust', 'exhaust', box)}
-  ${sensor(box.centreX + box.badgeR * 5.2, box.yOut - box.badgeR * 1.1, 'T7', 't7_supply', 'supply', box)}
+  ${sensor(box.t8x || box.centreX - box.badgeR * 4.2, box.yIn + 6, 'T8', 't8_outdoor', 'outdoor', box)}
+  ${sensor(box.t3x || box.centreX + box.badgeR * 3.2, box.yIn + 6, 'T3', 't3_extract', 'extract', box)}
+  ${sensor(box.rhx || box.centreX + box.badgeR * 6.1, box.yIn + box.badgeR * 2.4, 'RH', 'humidity', 'extract', box)}
+  ${sensor(box.t4x || box.centreX - box.badgeR * 5.2, box.yOut, 'T4', 't4_exhaust', 'exhaust', box)}
+  ${sensor(box.t7x || box.centreX + box.badgeR * 5.2, box.yOut, 'T7', 't7_supply', 'supply', box)}
   ${damper(box, data)}
-  ${fan(box.ductIn - 8, box.yOut, 'extract_fan', data.extractSpin, data.m3, box)}
-  ${fan(right - (box.ductIn - hx) + 8, box.yOut, 'supply_fan', data.supplySpin, data.m4, box)}
+  ${fan(box.fanLeft || box.ductIn - 8, box.yOut, 'extract_fan', data.extractSpin, data.m3, box)}
+  ${fan(box.fanRight || right - (box.ductIn - hx) + 8, box.yOut, 'supply_fan', data.supplySpin, data.m4, box)}
   <text class="side" font-size="${box.name}" x="${tempL}" y="${nameY}">Udeluft</text>
   <text class="side" font-size="${box.name}" x="${tempR}" y="${nameY}" text-anchor="end">Fraluft</text>
   <text class="duct-temp value-text out" font-size="${box.temp}" x="${tempL}" y="${box.tempTop}" data-live="t8_outdoor">${escape(data.t8 || '—')}</text>
@@ -198,21 +204,33 @@
 
   function roofFilters(alarm, box) {
     const cls = alarm ? 'filter alarm' : 'filter';
-    const cx = box.centreX;
-    const apex = box.yIn - (box.compact ? 6 : 10);
-    const foot = box.splitY - (box.compact ? 18 : 28);
-    const half = box.compact ? 108 : 210;
-    const thick = box.compact ? 12 : 18;
-    const left = `M ${cx - 10} ${apex + 6} L ${cx - half} ${foot} L ${cx - half + thick} ${foot + 6} L ${cx + 2} ${apex + 16} Z`;
-    const right = `M ${cx + 10} ${apex + 6} L ${cx + half} ${foot} L ${cx + half - thick} ${foot + 6} L ${cx - 2} ${apex + 16} Z`;
+    const [hx, hy, hw] = box.housing;
+    const right = hx + hw;
+    const thick = box.compact ? 8 : 14;
+    const left = strip(box.centreX, hy, hx, box.splitY, thick);
+    const other = strip(box.centreX, hy, right, box.splitY, thick);
     return `<g data-part="filter" data-filter="outdoor" class="${cls}"><path class="filter-panel" d="${left}"/></g>
-    <g data-part="filter" data-filter="extract" class="${cls}"><path class="filter-panel" d="${right}"/></g>`;
+    <g data-part="filter" data-filter="extract" class="${cls}"><path class="filter-panel" d="${other}"/></g>`;
+  }
+
+  function strip(x1, y1, x2, y2, thick) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    let nx = dy / len;
+    let ny = -dx / len;
+    if (ny < 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    const point = (x, y) => `${Math.round(x)},${Math.round(y)}`;
+    return `M ${point(x1, y1)} L ${point(x2, y2)} L ${point(x2 + nx * thick, y2 + ny * thick)} L ${point(x1 + nx * thick, y1 + ny * thick)} Z`;
   }
 
   function damper(box, data) {
     const bypass = data.bypass || 'closed';
     const cx = box.centreX;
-    const cy = box.yIn - (box.compact ? 18 : 28);
+    const cy = box.damperY || (box.housing[1] + (box.compact ? 30 : 42));
     const open = `M ${cx - 12} ${cy} H ${cx + 12}`;
     const shut = `M ${cx - 9} ${cy + 9} L ${cx + 9} ${cy - 9}`;
     const d = bypass === 'open' ? open : shut;
@@ -248,14 +266,18 @@
   function fan(cx, cy, part, spin, speed, box) {
     const motion = spin ? ` style="animation-duration:${spin}s"` : '';
     const speedKey = part === 'extract_fan' ? 'extract_fan_speed' : 'supply_fan_speed';
+    const radius = box.fanRadius;
+    const blade = (radius / 26).toFixed(3);
     return `<g data-part="${part}" class="fan-unit" transform="translate(${cx} ${cy})"${motion}>
-      <circle class="fan" r="${box.fanR}"/>
-      <path class="blades" d="M0,-3 C10,-6 18,-22 6,-24 C-2,-14 -1,-6 0,-3 Z"/>
-      <path class="blades" d="M0,-3 C10,-6 18,-22 6,-24 C-2,-14 -1,-6 0,-3 Z" transform="rotate(120)"/>
-      <path class="blades" d="M0,-3 C10,-6 18,-22 6,-24 C-2,-14 -1,-6 0,-3 Z" transform="rotate(240)"/>
-      <circle class="hub" r="4.5"/>
+      <circle class="fan" r="${radius}"/>
+      <g transform="scale(${blade})">
+        <path class="blades" d="M0,-3 C10,-6 18,-22 6,-24 C-2,-14 -1,-6 0,-3 Z"/>
+        <path class="blades" d="M0,-3 C10,-6 18,-22 6,-24 C-2,-14 -1,-6 0,-3 Z" transform="rotate(120)"/>
+        <path class="blades" d="M0,-3 C10,-6 18,-22 6,-24 C-2,-14 -1,-6 0,-3 Z" transform="rotate(240)"/>
+      </g>
+      <circle class="hub" r="${Math.max(3, radius * 0.18).toFixed(1)}"/>
     </g>
-  <text class="muted fan-speed" font-size="${box.fanText}" x="${cx}" y="${cy - box.fanR - 6}" text-anchor="middle" data-live="${speedKey}">${escape(speed || '')}</text>`;
+  <text class="muted fan-speed" font-size="${box.fanText}" x="${cx}" y="${cy - radius - 8}" text-anchor="middle" data-live="${speedKey}">${escape(speed || '')}</text>`;
   }
 
   function coil(x, y, part) {
