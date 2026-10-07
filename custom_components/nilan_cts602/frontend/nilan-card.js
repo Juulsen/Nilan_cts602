@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Juulsen
 /* Nilan CTS602 dashboard. Writes go through number, select and button entities. */
-const NILAN_VERSION = '0.5.5';
+const NILAN_VERSION = '0.6.0';
 const NILAN_AUTHOR = 'Juulsen';
 const NILAN_STATIC = '/nilan_cts602-static/';
 const HISTORY_REFRESH_MS = 300000;
@@ -259,10 +259,16 @@ class NilanCard extends HTMLElement {
     const labels = root.querySelectorAll('.bypass-label');
     if (labels.length > 1) labels[labels.length - 1].textContent = this.diagramBypassLine();
     const bypass = this.bypassView();
-    const damper = root.querySelector('[data-part="bypass"]');
+    const damper = root.querySelector('[data-nilan-damper]') || root.querySelector('[data-part="bypass"]');
     if (damper) {
       damper.setAttribute('data-state', bypass.state);
-      if (bypass.state === 'open') damper.setAttribute('d', 'M 368.72879 90.711868 H 390.72879');
+      if (damper.getAttribute('data-nilan-damper')) {
+        if (bypass.state === 'open') {
+          damper.setAttribute('transform', `rotate(${damper.getAttribute('data-open-rotate')} ${damper.getAttribute('data-origin')})`);
+        } else {
+          damper.removeAttribute('transform');
+        }
+      } else if (bypass.state === 'open') damper.setAttribute('d', 'M 368.72879 90.711868 H 390.72879');
       else if (bypass.state === 'closed') damper.setAttribute('d', 'm 371.16949,97.711865 14,-14');
     }
     const filterClass = this.on('filter') ? 'filter alarm' : 'filter';
@@ -944,12 +950,14 @@ nav button.active{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08);font-weig
 :host([data-hmi="dark"]) nav button.active{background:#1c2630}
 .tab-fade{display:none}
 .stage{min-height:360px}
-.diagram{width:100%;min-width:0;min-height:240px}
-.diagram svg{width:100%;height:auto;display:block}
+.diagram{width:100%;min-width:0;min-height:0;overflow:visible}
+.diagram svg{width:100%;max-width:100%;height:auto;display:block}
 .diagram svg .nilan-value{cursor:pointer}
 .diagram svg .nilan-flow{animation:nilan-chevron 1.6s ease-in-out infinite}
+.diagram svg [data-part="extract_fan"],.diagram svg [data-part="supply_fan"]{animation:nilan-spin linear infinite}
 @keyframes nilan-chevron{0%,100%{opacity:1}45%{opacity:.22}55%{opacity:.22}}
-@media (prefers-reduced-motion: reduce){.diagram svg .nilan-flow{animation:none}}
+@keyframes nilan-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.diagram svg .nilan-flow,.diagram svg [data-part="extract_fan"],.diagram svg [data-part="supply_fan"]{animation:none}}
 section{background:#fff;border:1px solid #e1e7ee;border-radius:16px;padding:14px;margin:0 0 12px}
 :host([data-hmi="dark"]) section{background:#171e27;border-color:#2a3644}
 .setting{padding:10px 0;border-top:1px solid #eef2f6}

@@ -1,4 +1,5 @@
-Ventilation SVG-eksport (dashboard-ventilation) 2026-09-30
+Ventilation SVG-eksport (dashboard-ventilation) 2026-09-30, opdateret 2026-10-07 (u5)
+u5: modstroemsveksler (ottekant), udeluft/afkast byttet om, bypass flyttet, forvarmer flyttet med udeluft
 ventilation-anlaeg.svg  : landskabs-grundbillede (1200x600) uden tilvalg
 ventilation-mobil.svg   : portraet-grundbillede (400x760) uden tilvalg
 svg/forvarmer-el.svg, forvarmer-vand.svg, eftervarmer-el.svg, eftervarmer-vand.svg : komponenter til Anlaeg (vandret kanal)
@@ -6,6 +7,16 @@ svg/forvarmer-el.svg, forvarmer-vand.svg, eftervarmer-el.svg, eftervarmer-vand.s
 svg/*-mobil.svg : samme komponenter til Mobil (lodret kanal)
 svg/*tekst*/felt*/panelraekke* : betingede tekst-/rammebilleder
 Placering (viewBox-koordinater, centrum):
- Anlaeg: forvarmer el (340,360) vand (390,370) | eftervarmer el (945,360) vand (990,370) | bredde 44
- Mobil : forvarmer el (64,505) vand (53,551) | eftervarmer el (64,233) vand (53,199) | bredde 48 / 70
+ Anlaeg: forvarmer el (340,180) vand (390,190) | eftervarmer el (945,360) vand (990,370) | bredde 44
+ Mobil : forvarmer el (336,535) vand (325,535) | eftervarmer el (64,233) vand (53,199) | bredde 48 / 70
+Samme i picture-elements style (left/top i %, centrum):
+ Anlaeg: forvarmer el 28.333% / 30.0%   vand 32.5% / 31.667%   (eftervarmer uaendret)
+ Mobil : forvarmer el 84.0% / 70.395%   vand 81.25% / 70.395%  (eftervarmer uaendret)
+Tekst/felt der skal flyttes med (ellers kolliderer de med den flyttede udsugningsventilator):
+ Anlaeg: anlaeg-tekst-forvarmer (365,314) -> (335,232) = 27.917% / 38.667%
+         AKTIV-maerke for forvarmer, 60x20 (365,426) -> (365,114) = 30.417% / 19.0%
+         anlaeg-tekst-eftervarmer (946,425) og anlaeg-panelraekke-forvarmer (1065,550) uaendret
+ Mobil : mobil-felt-forvarmer (150,520) -> (250,562) = 62.5% / 73.947%
+         forvarmer-vaerdifelter 88x24 (150,528) -> (250,570) = 62.5% / 75.0%
+         mobil-tekst-eftervarmer (150,216) uaendret
 Styres af input_boolean.vent_vis_forvarmer_el / _forvarmer_vand / _eftervarmer_el / _eftervarmer_vand
