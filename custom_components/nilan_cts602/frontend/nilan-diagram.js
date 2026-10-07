@@ -1,291 +1,235 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Juulsen
-/* Single-line counterflow schematic.
+/* Counterflow cross-section matching the approved principle drawing.
    Outdoor air enters top-left and leaves as supply bottom-right.
    Extract air enters top-right and leaves as exhaust bottom-left. */
 (function (root) {
   const STYLE = `
-      .housing{fill:var(--hmi-housing);stroke:var(--hmi-outline);stroke-width:3}
-      .split{fill:none;stroke:var(--hmi-outline);stroke-width:2.6}
-      .duct{fill:none;stroke-width:3.2;stroke-linecap:round}
-      .duct.outdoor{stroke:var(--flow-outdoor)}
-      .duct.extract{stroke:var(--flow-extract)}
-      .duct.exhaust{stroke:var(--flow-exhaust)}
-      .duct.supply{stroke:var(--flow-supply)}
-      .hx-hex{fill:none;stroke:var(--hx-line);stroke-width:3}
-      .hx-hatch{fill:none;stroke:var(--hx-line);stroke-width:1.1;opacity:.35}
-      .filter-panel{fill:none;stroke:var(--filter-stroke);stroke-width:3}
-      .filter.alarm .filter-panel{stroke:var(--alarm)}
-      .sensor{fill:var(--hmi-box);stroke-width:2.6}
+      .housing{fill:var(--hmi-housing);stroke:var(--hmi-outline);stroke-width:2.2}
+      .split{fill:none;stroke:var(--hmi-outline);stroke-width:1.6}
+      .duct-body{fill:var(--hmi-frame);stroke:var(--hmi-outline);stroke-width:1.2}
+      .big-arrow{stroke:none}
+      .big-arrow.outdoor{fill:var(--flow-outdoor)}
+      .big-arrow.extract{fill:var(--flow-extract)}
+      .big-arrow.exhaust{fill:var(--flow-exhaust)}
+      .big-arrow.supply{fill:var(--flow-supply)}
+      .hx-hex{fill:var(--hx-fill);stroke:var(--hx-line);stroke-width:2.4}
+      .hx-hatch{fill:url(#nilan-hex);stroke:none}
+      .filter-panel{fill:var(--filter-fill);stroke:var(--filter-stroke);stroke-width:2}
+      .filter-pleat{fill:none;stroke:var(--filter-stroke);stroke-width:1.3}
+      .filter.alarm .filter-panel,.filter.alarm .filter-pleat{stroke:var(--alarm)}
+      .sensor{fill:var(--hmi-box);stroke-width:2.4}
       .sensor.outdoor{stroke:var(--flow-outdoor)}
       .sensor.extract{stroke:var(--flow-extract)}
       .sensor.exhaust{stroke:var(--flow-exhaust)}
       .sensor.supply{stroke:var(--flow-supply)}
-      .sensor-label{font-weight:750;text-anchor:middle}
+      .sensor-label{font-size:13px;font-weight:750;text-anchor:middle}
       .sensor-label.outdoor{fill:var(--flow-outdoor)}
       .sensor-label.extract{fill:var(--flow-extract)}
       .sensor-label.exhaust{fill:var(--flow-exhaust)}
       .sensor-label.supply{fill:var(--flow-supply)}
-      .fan{fill:var(--hmi-box);stroke:var(--hmi-ink);stroke-width:2.8}
+      .fan{fill:var(--hmi-box);stroke:var(--hmi-ink);stroke-width:2}
       .blades{fill:var(--hmi-ink)}
-      .hub{fill:var(--hmi-box);stroke:var(--hmi-ink);stroke-width:1.4}
+      .hub{fill:var(--hmi-box);stroke:var(--hmi-ink);stroke-width:1.2}
       .fan-unit[style] .blades{animation:nilan-spin linear infinite;transform-origin:0 0}
-      .tag{font-weight:650;fill:var(--hmi-ink)}
-      .side{font-weight:650;fill:var(--hmi-muted)}
-      .muted{fill:var(--hmi-muted)}
-      .value-text{font-weight:750;fill:var(--hmi-ink)}
-      .duct-temp.out{fill:var(--flow-outdoor)}
-      .duct-temp.ext{fill:var(--flow-extract)}
-      .duct-temp.exh{fill:var(--flow-exhaust)}
-      .duct-temp.sup{fill:var(--flow-supply)}
+      .tag{font-size:14px;font-weight:650;fill:var(--hmi-ink)}
+      .side{font-size:16px;font-weight:750;fill:var(--hmi-ink)}
+      .muted{font-size:13px;fill:var(--hmi-muted)}
+      .value-text{font-size:32px;font-weight:750;fill:var(--hmi-ink)}
+      .out .value-text{fill:var(--flow-outdoor)}
+      .ext .value-text{fill:var(--flow-extract)}
+      .exh .value-text{fill:var(--flow-exhaust)}
+      .sup .value-text{fill:var(--flow-supply)}
       .eff-value{fill:var(--hx-line)}
-      .plaque,.panel{fill:var(--hmi-box)}
+      .vbox,.plaque,.panel{fill:var(--hmi-box)}
+      .vbox{stroke-width:2}
+      .vbox.out{stroke:var(--flow-outdoor)}
+      .vbox.ext{stroke:var(--flow-extract)}
+      .vbox.exh{stroke:var(--flow-exhaust)}
+      .vbox.sup{stroke:var(--flow-supply)}
       .plaque{stroke:var(--plaque-line);stroke-width:1.6}
-      .panel{stroke:var(--hmi-muted);stroke-width:1.5}
-      .damper-ring{fill:var(--hmi-box);stroke:var(--hmi-ink);stroke-width:2.6}
-      .damper{fill:none;stroke:var(--hmi-ink);stroke-width:3;stroke-linecap:round}
-      .coil{fill:none;stroke:var(--alarm);stroke-width:2.6}
+      .panel{stroke:var(--hmi-muted);stroke-width:1.5;stroke-dasharray:5 4}
+      .swatch{fill:var(--plaque-line)}
+      .leader{fill:none;stroke:var(--hmi-muted);stroke-width:1.4;stroke-dasharray:4 4}
+      .callout{fill:none;stroke:var(--hmi-muted);stroke-width:1.35}
+      .damper-ring{fill:var(--hmi-box);stroke:var(--hmi-ink);stroke-width:1.8}
+      .damper{fill:none;stroke:var(--hmi-ink);stroke-width:2.4;stroke-linecap:round}
+      .drop{fill:var(--drop)}
+      .coil{fill:none;stroke:var(--alarm);stroke-width:2.2}
+      svg.compact .bypass-label{font-size:14px}
+      svg.compact .tag{font-size:18px}
+      svg.compact .sensor-label{font-size:16px}
+      svg.compact .fan-speed{font-size:16px}
+      svg.compact .verbose{display:none}
       @media (prefers-reduced-motion: reduce){.fan-unit[style] .blades{animation:none}}
       @keyframes nilan-spin{to{transform:rotate(360deg)}}
   `;
 
+  const HEX = '380,108 498,178 498,324 380,394 262,324 262,178';
+
   function markup(plant, state) {
     const data = state || {};
-    if (data.compact) return draw(plant, data, phone());
-    return draw(plant, data, desk());
+    if (data.compact) return compact(plant, data);
+    return desktop(plant, data);
   }
 
-  function desk() {
-    return {
-      compact: false,
-      vb: '0 0 1100 660',
-      housing: [48, 86, 1004, 520],
-      splitY: 346,
-      centreX: 550,
-      yIn: 196,
-      yOut: 470,
-      tempTop: 176,
-      tempBottom: 548,
-      nameTop: 138,
-      nameBottom: 582,
-      bypassY: 58,
-      damperY: 128,
-      xL: 16,
-      xR: 1084,
-      ductIn: 210,
-      temp: 34,
-      name: 16,
-      badge: 20,
-      badgeR: 18,
-      fanRadius: 26,
-      fanText: 18,
-      bypass: 18,
-    };
-  }
-
-  function phone() {
-    return {
-      compact: true,
-      vb: '0 0 340 500',
-      housing: [4, 112, 332, 292],
-      splitY: 258,
-      centreX: 170,
-      yIn: 168,
-      yOut: 352,
-      tempTop: 52,
-      tempBottom: 438,
-      nameTop: 24,
-      nameBottom: 468,
-      bypassY: 76,
-      damperY: 142,
-      xL: 12,
-      xR: 328,
-      ductIn: 52,
-      fanLeft: 32,
-      fanRight: 308,
-      t4x: 108,
-      t7x: 232,
-      temp: 24,
-      name: 14,
-      badge: 16,
-      badgeR: 13,
-      fanRadius: 14,
-      fanText: 15,
-      bypass: 16,
-    };
-  }
-
-  function draw(plant, data, box) {
-    const [hx, hy, hw, hh] = box.housing;
-    const right = hx + hw;
-    const bottom = hy + hh;
-    const tempL = hx + 16;
-    const tempR = right - 16;
-    const nameY = box.nameTop;
-    const bottomName = box.nameBottom;
-    const plaques = box.compact ? '' : `
-  <g class="channel-value">
-    <rect class="plaque" x="16" y="10" width="250" height="64" rx="10"/>
-    <text class="tag" font-size="15" x="28" y="32">Varmegenvinding</text>
-    <text class="muted" font-size="12" x="28" y="48">(T3−T4)/(T3−T8)</text>
-    <text class="value-text eff-value" font-size="22" x="250" y="52" text-anchor="end" data-live="efficiency">${escape(data.eff || '—')}</text>
-    <rect class="panel" x="820" y="10" width="264" height="64" rx="10"/>
-    <text class="tag" font-size="15" x="836" y="36">CTS-panel · T15</text>
-    <text class="muted" font-size="12" x="836" y="54">loft</text>
-    <text class="value-text" font-size="22" x="1068" y="50" text-anchor="end" data-live="t15_panel">${escape(data.t15 || '—')}</text>
-  </g>`;
+  function desktop(plant, data) {
     return `
-<svg class="${box.compact ? 'compact' : 'desk'}" viewBox="${box.vb}" data-diagram="counterflow" role="img">
+<svg viewBox="0 0 1100 690" data-diagram="counterflow" role="img">
   <title>Modstrømsveksler</title>
   ${defs()}
-  ${plaques}
-  <rect class="housing" x="${hx}" y="${hy}" width="${hw}" height="${hh}" rx="16" data-part="housing"/>
-  <line class="split" x1="${hx}" y1="${box.splitY}" x2="${right}" y2="${box.splitY}"/>
-  <line class="split" x1="${box.centreX}" y1="${box.splitY}" x2="${box.centreX}" y2="${bottom}" data-part="centre-split"/>
-  ${fitCoils(plant, box)}
-  ${roofFilters(data.filterAlarm, box)}
-  ${hexagon(box)}
-  <line class="duct outdoor" x1="${box.xL}" y1="${box.yIn}" x2="${box.ductIn}" y2="${box.yIn}" marker-end="url(#arr-outdoor)"/>
-  <line class="duct extract" x1="${box.xR}" y1="${box.yIn}" x2="${right - (box.ductIn - hx)}" y2="${box.yIn}" marker-end="url(#arr-extract)"/>
-  <line class="duct exhaust" x1="${box.ductIn}" y1="${box.yOut}" x2="${box.xL}" y2="${box.yOut}" marker-end="url(#arr-exhaust)"/>
-  <line class="duct supply" x1="${right - (box.ductIn - hx)}" y1="${box.yOut}" x2="${box.xR}" y2="${box.yOut}" marker-end="url(#arr-supply)"/>
-  ${sensor(box.t8x || box.centreX - box.badgeR * 4.2, box.yIn + 6, 'T8', 't8_outdoor', 'outdoor', box)}
-  ${sensor(box.t3x || box.centreX + box.badgeR * 3.2, box.yIn + 6, 'T3', 't3_extract', 'extract', box)}
-  ${sensor(box.rhx || box.centreX + box.badgeR * 6.1, box.yIn + box.badgeR * 2.4, 'RH', 'humidity', 'extract', box)}
-  ${sensor(box.t4x || box.centreX - box.badgeR * 5.2, box.yOut, 'T4', 't4_exhaust', 'exhaust', box)}
-  ${sensor(box.t7x || box.centreX + box.badgeR * 5.2, box.yOut, 'T7', 't7_supply', 'supply', box)}
-  ${damper(box, data)}
-  ${fan(box.fanLeft || box.ductIn - 8, box.yOut, 'extract_fan', data.extractSpin, data.m3, box)}
-  ${fan(box.fanRight || right - (box.ductIn - hx) + 8, box.yOut, 'supply_fan', data.supplySpin, data.m4, box)}
-  <text class="side" font-size="${box.name}" x="${tempL}" y="${nameY}">Udeluft</text>
-  <text class="side" font-size="${box.name}" x="${tempR}" y="${nameY}" text-anchor="end">Fraluft</text>
-  <text class="duct-temp value-text out" font-size="${box.temp}" x="${tempL}" y="${box.tempTop}" data-live="t8_outdoor">${escape(data.t8 || '—')}</text>
-  <text class="duct-temp value-text ext" font-size="${box.temp}" x="${tempR}" y="${box.tempTop}" text-anchor="end" data-live="t3_extract">${escape(data.t3 || '—')}</text>
-  <text class="duct-temp value-text exh" font-size="${box.temp}" x="${tempL}" y="${box.tempBottom}" data-live="t4_exhaust">${escape(data.t4 || '—')}</text>
-  <text class="duct-temp value-text sup" font-size="${box.temp}" x="${tempR}" y="${box.tempBottom}" text-anchor="end" data-live="t7_supply">${escape(data.t7 || '—')}</text>
-  <text class="side" font-size="${box.name}" x="${tempL}" y="${bottomName}">Afkast</text>
-  <text class="side" font-size="${box.name}" x="${tempR}" y="${bottomName}" text-anchor="end">Tilluft</text>
+  <g class="channel-value">
+    <rect class="plaque" x="12" y="8" width="250" height="112" rx="12"/>
+    <text class="tag" x="26" y="32">Varmegenvinding</text>
+    <text class="muted" x="26" y="52">(T3−T4)/(T3−T8)</text>
+    <text class="value-text eff-value" font-size="32" x="26" y="100" data-sensor="efficiency">${escape(data.eff || '—')}</text>
+    <rect class="panel" x="401.43185" y="14.110375" width="300.25497" height="77.170021" rx="12.010198"/>
+    <rect class="swatch" x="416" y="28" width="18" height="18" rx="3"/>
+    <text class="tag" x="442" y="42">CTS-panel · T15</text>
+    <text class="muted" x="442" y="64">loft</text>
+    <text class="value-text" font-size="32" x="671.52545" y="50.711864" text-anchor="end" data-sensor="t15_panel">${escape(data.t15 || '—')}</text>
+    <line class="leader" x1="550" y1="92.711861" x2="550" y2="201"/>
+  </g>
+  <text class="side" x="16" y="200">Udeluft</text>
+  <text class="muted" x="16" y="218">fra det fri</text>
+  <text class="side" x="1084" y="200" text-anchor="end">Fraluft</text>
+  <text class="muted" x="1084" y="218" text-anchor="end">fra boligen</text>
+  <text class="side" x="16" y="448">Afkast</text>
+  <text class="muted" x="16" y="466">til det fri</text>
+  <text class="side" x="1084" y="448" text-anchor="end">Tilluft</text>
+  <text class="muted" x="1084" y="466" text-anchor="end">til boligen</text>
+  <g class="channel-value out">
+    <rect class="vbox out" x="12" y="232" width="148" height="92" rx="12"/>
+    <text class="value-text" font-size="32" x="24" y="278">${escape(data.t8 || '—')}</text>
+    <text class="muted" x="24" y="306">T8 udeluft</text>
+  </g>
+  <g class="channel-value ext">
+    <rect class="vbox ext" x="940" y="232" width="148" height="92" rx="12"/>
+    <text class="value-text" font-size="32" x="952" y="278">${escape(data.t3 || '—')}</text>
+    <text class="muted" x="952" y="306">T3 · RH ${escape(data.rh || '')}</text>
+  </g>
+  <g class="channel-value exh">
+    <rect class="vbox exh" x="12" y="478" width="148" height="92" rx="12"/>
+    <text class="value-text" font-size="32" x="24" y="524">${escape(data.t4 || '—')}</text>
+    <text class="muted" x="24" y="552">T4 afkast</text>
+  </g>
+  <g class="channel-value sup">
+    <rect class="vbox sup" x="940" y="478" width="148" height="92" rx="12"/>
+    <text class="value-text" font-size="32" x="952" y="524">${escape(data.t7 || '—')}</text>
+    <text class="muted" x="952" y="552">T7 tilluft</text>
+  </g>
+  <g transform="translate(170 155)">${scene(plant, data)}</g>
+  <path class="drop" d="M550 648 c8 12 8 18 0 26 c-8 -8 -8 -14 0 -26z"/>
+  <text class="muted" x="568" y="672">Kondensafløb</text>
 </svg>`;
   }
 
-  function fitCoils(plant, box) {
+  function compact(plant, data) {
+    return `
+<svg class="compact" viewBox="0 0 760 500" data-diagram="counterflow" role="img">
+  <title>Modstrømsveksler</title>
+  ${defs()}
+  ${scene(plant, data)}
+</svg>`;
+  }
+
+  function scene(plant, data) {
     const fit = plant || {};
-    const [hx, , hw] = box.housing;
-    const pre = fit.preheater ? coil(hx + 28, box.yIn - 8, 'preheater') : '';
-    const post = fit.reheater === 'water'
-      ? `${coil(hx + hw - 92, box.yOut - 8, 'reheater')}${valve(hx + hw - 64, box.yOut + 16)}`
-      : fit.reheater === 'electric'
-        ? coil(hx + hw - 92, box.yOut - 8, 'reheater')
-        : '';
-    return `${pre}${post}`;
-  }
-
-  function hexagon(box) {
-    const cx = box.centreX;
-    const cy = box.splitY + (box.compact ? 8 : 10);
-    const w = box.compact ? 78 : 150;
-    const h = box.compact ? 92 : 176;
-    const points = [
-      [cx, cy - h / 2],
-      [cx + w / 2, cy - h / 4],
-      [cx + w / 2, cy + h / 4],
-      [cx, cy + h / 2],
-      [cx - w / 2, cy + h / 4],
-      [cx - w / 2, cy - h / 4],
-    ].map((pair) => pair.map((n) => Math.round(n)).join(',')).join(' ');
-    const hatch = [
-      `M ${cx - w / 4} ${cy - h / 5} L ${cx + w / 4} ${cy + h / 5}`,
-      `M ${cx + w / 4} ${cy - h / 5} L ${cx - w / 4} ${cy + h / 5}`,
-      `M ${cx} ${cy - h / 3} L ${cx} ${cy + h / 3}`,
-    ].join(' ');
-    return `<polygon class="hx-hex" points="${points}" data-part="exchanger"/>
-  <path class="hx-hatch" d="${hatch}"/>`;
-  }
-
-  function roofFilters(alarm, box) {
-    const cls = alarm ? 'filter alarm' : 'filter';
-    const [hx, hy, hw] = box.housing;
-    const right = hx + hw;
-    const thick = box.compact ? 8 : 14;
-    const left = strip(box.centreX, hy, hx, box.splitY, thick);
-    const other = strip(box.centreX, hy, right, box.splitY, thick);
-    return `<g data-part="filter" data-filter="outdoor" class="${cls}"><path class="filter-panel" d="${left}"/></g>
-    <g data-part="filter" data-filter="extract" class="${cls}"><path class="filter-panel" d="${other}"/></g>`;
-  }
-
-  function strip(x1, y1, x2, y2, thick) {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const len = Math.hypot(dx, dy) || 1;
-    let nx = dy / len;
-    let ny = -dx / len;
-    if (ny < 0) {
-      nx = -nx;
-      ny = -ny;
-    }
-    const point = (x, y) => `${Math.round(x)},${Math.round(y)}`;
-    return `M ${point(x1, y1)} L ${point(x2, y2)} L ${point(x2 + nx * thick, y2 + ny * thick)} L ${point(x1 + nx * thick, y1 + ny * thick)} Z`;
-  }
-
-  function damper(box, data) {
     const bypass = data.bypass || 'closed';
-    const cx = box.centreX;
-    const cy = box.damperY || (box.housing[1] + (box.compact ? 30 : 42));
-    const open = `M ${cx - 12} ${cy} H ${cx + 12}`;
-    const shut = `M ${cx - 9} ${cy + 9} L ${cx + 9} ${cy - 9}`;
-    const d = bypass === 'open' ? open : shut;
-    const stateLine = data.bypassLabel || (bypass === 'open' ? 'åben' : bypass === 'closed' ? 'lukket' : '');
-    const labelY = box.bypassY;
-    return `<circle class="damper-ring" cx="${cx}" cy="${cy}" r="${box.compact ? 11 : 14}"/>
-  <path class="damper" d="${d}" data-part="bypass" data-state="${bypass}" data-open="${open}" data-closed="${shut}"/>
-  <text class="tag" font-size="${box.bypass}" x="${cx}" y="${labelY}" text-anchor="middle">Bypass</text>
-  <text class="muted" font-size="${box.bypass}" x="${cx}" y="${labelY + box.bypass + 2}" text-anchor="middle" data-live="fmt:bypass">${escape(stateLine)}</text>`;
+    const filterClass = data.filterAlarm ? 'filter alarm' : 'filter';
+    const damper = bypass === 'open'
+      ? 'M 368.72879 90.711868 H 390.72879'
+      : 'm 371.16949,97.711865 14,-14';
+    const stateLine = bypass === 'open'
+      ? 'åben (H102/H103)'
+      : bypass === 'closed'
+        ? 'lukket (H102/H103)'
+        : (data.bypassLabel || '');
+    const pre = fit.preheater ? coil(118, 128, 'preheater') : '';
+    const post = fit.reheater === 'water'
+      ? `${coil(668, 360, 'reheater')}${valve(692, 384)}`
+      : fit.reheater === 'electric'
+        ? coil(668, 360, 'reheater')
+        : '';
+    return `
+  <rect class="duct-body" x="0.04801029" y="104.04801" width="100.71754" height="47.903976" rx="11.711342"/>
+  <rect class="duct-body" x="674" y="104" width="86" height="48" rx="10"/>
+  <rect class="duct-body" x="0" y="348" width="86" height="48" rx="10"/>
+  <rect class="duct-body" x="674" y="348" width="86" height="48" rx="10"/>
+  <polygon class="big-arrow outdoor" points="10,108 62,128 10,148"/>
+  <polygon class="big-arrow extract" points="750,108 698,128 750,148"/>
+  <polygon class="big-arrow exhaust" points="62,352 10,372 62,392"/>
+  <polygon class="big-arrow supply" points="698,352 750,372 698,392"/>
+  <rect class="housing" x="78" y="46" width="604" height="422" rx="16" data-part="housing"/>
+  <line class="split" x1="78" y1="251" x2="682" y2="251"/>
+  <line class="split" x1="380.64856" y1="47.382591" x2="380.64856" y2="469.0097" data-part="centre-split"/>
+  ${pre}
+  ${roofFilters(filterClass)}
+  <polygon class="hx-hex" points="${HEX}" data-part="exchanger"/>
+  <polygon class="hx-hatch" points="${HEX}"/>
+  ${sensor(306, 128, 'T8', 't8_outdoor', 'outdoor', 14, '-109.15254,-61.59322')}
+  ${sensor(454, 128, 'T3', 't3_extract', 'extract', 14, '42.101695,-60.813559')}
+  ${sensor(478, 146, 'RH', 'humidity', 'extract', 13, '58.474576,-79.525424')}
+  ${sensor(210, 362, 'T4', 't4_exhaust', 'exhaust', 16, '-14.813559,79.525424')}
+  ${sensor(548, 362, 'T7', 't7_supply', 'supply', 16, '8.5762712,74.847458')}
+  <circle class="damper-ring" cx="379.72879" cy="90.711868" r="11"/>
+  <path class="damper" d="${damper}" data-part="bypass" data-state="${bypass}"/>
+  <line class="callout" x1="453.28708" y1="37.552711" x2="389.00107" y2="81.362549"/>
+  <text class="tag bypass-label" x="462" y="24">Bypass</text>
+  <text class="muted bypass-label" x="462" y="40">${escape(stateLine)}</text>
+  ${fan(108.23729, 375.11864, 'extract_fan', data.extractSpin)}
+  <text class="muted fan-speed" x="109.79661" y="339.96609" text-anchor="middle">${escape(data.m3 || '')}</text>
+  ${fan(654.88136, 376.67797, 'supply_fan', data.supplySpin)}
+  <text class="muted fan-speed" x="656.44067" y="340.74576" text-anchor="middle">${escape(data.m4 || '')}</text>
+  ${post}`;
+  }
+
+  function roofFilters(cls) {
+    return `<g data-part="filter" data-filter="outdoor" class="${cls}" transform="matrix(1.2729517,0,0,1.1305313,-48.471348,-30.151851)">
+      <polygon class="filter-panel" points="323.5,65.2 101.5,229.2 114.5,246.8 336.5,82.8" transform="matrix(1.0001078,0,0,0.98185809,-0.02361236,4.490092)"/>
+      <path class="filter-pleat" d="m 298.7,89.7 7.1,9.6 m -34.9,10.9 7.2,9.6 m -34.9,10.9 7.1,9.6 m -34.9,10.9 7.2,9.6 m -34.9,10.9 7.1,9.6 m -34.9,10.9 7.2,9.6 m -34.9,10.9 7.1,9.6"/>
+    </g>
+    <g data-part="filter" data-filter="extract" class="${cls}" transform="matrix(1.2662739,0,0,1.1147943,-153.02027,-24.535026)">
+      <polygon class="filter-panel" points="645.5,246.8 658.5,229.2 436.5,65.2 423.5,82.8"/>
+      <path class="filter-pleat" d="m 454.2,99.3 7.1,-9.6 m 20.6,30.1 7.2,-9.6 m 20.6,30.1 7.1,-9.6 m 20.6,30.1 7.2,-9.6 m 20.6,30.1 7.1,-9.6 m 20.6,30.1 7.2,-9.6 m 20.6,30.1 7.1,-9.6"/>
+    </g>`;
   }
 
   function defs() {
-    const marker = (id, color) => `<marker id="${id}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="var(${color})"/></marker>`;
     return `
   <defs>
-    ${marker('arr-outdoor', '--flow-outdoor')}
-    ${marker('arr-extract', '--flow-extract')}
-    ${marker('arr-exhaust', '--flow-exhaust')}
-    ${marker('arr-supply', '--flow-supply')}
+    <pattern id="nilan-hex" width="11" height="11" patternUnits="userSpaceOnUse">
+      <path d="M0 11 L11 0 M0 0 L11 11" stroke="var(--hx-line)" stroke-width="0.7"/>
+    </pattern>
     <style>${STYLE}</style>
   </defs>`;
   }
 
-  function sensor(x, y, name, key, tone, box) {
-    const px = Math.round(x);
-    const py = Math.round(y);
-    return `<g data-sensor="${key}">
-      <circle class="sensor ${tone}" cx="${px}" cy="${py}" r="${box.badgeR}"/>
-      <text class="sensor-label ${tone}" font-size="${box.badge}" x="${px}" y="${py + Math.round(box.badge * 0.34)}">${name}</text>
+  function sensor(x, y, name, key, tone, radius, shift) {
+    const move = shift ? ` transform="translate(${shift})"` : '';
+    return `<g data-sensor="${key}"${move}>
+      <circle class="sensor ${tone}" cx="${x}" cy="${y}" r="${radius}"/>
+      <text class="sensor-label ${tone}" x="${x}" y="${y + 5}">${name}</text>
     </g>`;
   }
 
-  function fan(cx, cy, part, spin, speed, box) {
+  function fan(cx, cy, part, spin) {
     const motion = spin ? ` style="animation-duration:${spin}s"` : '';
-    const speedKey = part === 'extract_fan' ? 'extract_fan_speed' : 'supply_fan_speed';
-    const radius = box.fanRadius;
-    const blade = (radius / 26).toFixed(3);
     return `<g data-part="${part}" class="fan-unit" transform="translate(${cx} ${cy})"${motion}>
-      <circle class="fan" r="${radius}"/>
-      <g transform="scale(${blade})">
-        <path class="blades" d="M0,-3 C10,-6 18,-22 6,-24 C-2,-14 -1,-6 0,-3 Z"/>
-        <path class="blades" d="M0,-3 C10,-6 18,-22 6,-24 C-2,-14 -1,-6 0,-3 Z" transform="rotate(120)"/>
-        <path class="blades" d="M0,-3 C10,-6 18,-22 6,-24 C-2,-14 -1,-6 0,-3 Z" transform="rotate(240)"/>
-      </g>
-      <circle class="hub" r="${Math.max(3, radius * 0.18).toFixed(1)}"/>
-    </g>
-  <text class="muted fan-speed" font-size="${box.fanText}" x="${cx}" y="${cy - radius - 8}" text-anchor="middle" data-live="${speedKey}">${escape(speed || '')}</text>`;
+      <circle class="fan" r="28"/>
+      <path class="blades" d="M0,-4 C12,-8 22,-28 7,-30 C-2,-18 -1,-8 0,-4 Z"/>
+      <path class="blades" d="M0,-4 C12,-8 22,-28 7,-30 C-2,-18 -1,-8 0,-4 Z" transform="rotate(120)"/>
+      <path class="blades" d="M0,-4 C12,-8 22,-28 7,-30 C-2,-18 -1,-8 0,-4 Z" transform="rotate(240)"/>
+      <circle class="hub" r="5.5"/>
+    </g>`;
   }
 
   function coil(x, y, part) {
-    return `<path class="coil" data-part="${part}" d="M ${x} ${y} q 8 -14 16 0 t 16 0 t 16 0"/>`;
+    return `<path class="coil" data-part="${part}" d="M ${x} ${y} q 8 -16 18 0 t 18 0 t 18 0"/>`;
   }
 
   function valve(x, y) {
-    return `<path data-part="valve" d="M ${x} ${y} l 14 -8 v 16 z" fill="var(--drop)"/>`;
+    return `<path data-part="valve" d="M ${x} ${y} l 16 -9 v 18 z" fill="var(--drop)"/>`;
   }
 
   function escape(value) {

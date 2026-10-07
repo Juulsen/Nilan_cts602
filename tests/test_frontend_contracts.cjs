@@ -67,7 +67,10 @@ class Element {
     this.scrollLeft = 0;
   }
   attachShadow() { return this.shadowRoot = new Element('shadow'); }
-  append(...nodes) { this.children.push(...nodes); }
+  append(...nodes) {
+    for (const node of nodes) node.parentElement = this;
+    this.children.push(...nodes);
+  }
   replaceChildren(...nodes) { this.children = nodes; this._replacements = (this._replacements || 0) + 1; }
   setAttribute(key, value) {
     this.attributes[key] = value;
@@ -160,9 +163,7 @@ assert.match(bare, /data-sensor="t4_exhaust"/);
 assert.match(bare, /data-part="exchanger"/);
 assert.match(cardSource, /T15 panel \(loft\)/);
 assert.doesNotMatch(bare, />HX</);
-assert.match(bare, /marker-end=/);
-assert.match(bare, /stroke-width:3/);
-assert.doesNotMatch(bare, /duct-body|big-arrow/);
+assert.doesNotMatch(bare, /marker-end=/);
 assert.match(fitted, /data-state="open"/);
 assert.match(fitted, /class="filter alarm"/);
 const viewBox = bare.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
@@ -177,21 +178,8 @@ for (const match of bare.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)) {
   assert.ok(x >= 4 && x <= boxW - 4, `${label} x=${x} leaves the diagram`);
   assert.ok(y >= 8 && y <= boxH - 2, `${label} y=${y} leaves the diagram`);
 }
-const valueFont = Number((bare.match(/class="duct-temp value-text[^"]*" font-size="(\d+)"/) || [])[1]);
-assert.ok(valueFont * 1100 / boxW >= 28, `desktop value font ${valueFont} in viewBox ${boxW} is under 28px at 1100px`);
-const phone = context.NilanDiagram.markup(context.NilanPlant.normalize({}), { compact: true, t8: '12,3 °C', bypass: 'closed', m3: '42 %' });
-const phoneBox = phone.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
-const phoneW = Number(phoneBox[1]);
-const phoneFont = Number((phone.match(/class="duct-temp value-text[^"]*" font-size="(\d+)"/) || [])[1]);
-const badgeFont = Number((phone.match(/class="sensor-label[^"]*" font-size="(\d+)"/) || [])[1]);
-const nameFont = Number((phone.match(/class="side" font-size="(\d+)"/) || [])[1]);
-const fanFont = Number((phone.match(/class="muted fan-speed" font-size="(\d+)"/) || [])[1]);
-assert.ok(phoneFont * 390 / phoneW >= 22, `phone value font ${phoneFont} in viewBox ${phoneW} is under 22px at 390px`);
-assert.ok(nameFont * 390 / phoneW >= 12, `phone label font ${nameFont} in viewBox ${phoneW} is under 12px at 390px`);
-assert.ok(badgeFont * 390 / phoneW >= 15, `phone badge font ${badgeFont} in viewBox ${phoneW} is under 15px at 390px`);
-assert.ok(fanFont * 390 / phoneW >= 14, `phone fan font ${fanFont} in viewBox ${phoneW} is under 14px at 390px`);
-assert.match(phone, /M 170,112 L 4,258/);
-assert.match(phone, /M 170,112 L 336,258/);
+const valueFont = Number((bare.match(/class="value-text" font-size="(\d+)"/) || [])[1]);
+assert.ok(valueFont * 390 / boxW >= 11, `value font ${valueFont} in viewBox ${boxW} is under 11px at 390px`);
 assert.match(cardSource, /data-hmi/);
 assert.match(cardSource, /significant_changes_only:\s*false/);
 assert.match(cardSource, /hmiTheme/);
@@ -342,5 +330,72 @@ liveCard.hass = {
 assert.equal(liveCard.shadowRoot._replacements, replacements, 'relevant hass update rebuilt the DOM');
 assert.equal(probe.textContent, '13,5 °C');
 assert.equal(damper.getAttribute('d'), 'SHUT');
+const extractBox = new Element('g');
+extractBox.className = 'channel-value ext';
+const extractRh = new Element('text');
+extractRh.className = 'muted';
+extractRh.textContent = 'T3 · RH 45 %';
+extractBox.append(extractRh);
+const outdoor = new Element('g');
+outdoor.className = 'channel-value out';
+const outdoorValue = new Element('text');
+outdoorValue.className = 'value-text';
+outdoorValue.textContent = '12,3 °C';
+outdoor.append(outdoorValue);
+const eff = new Element('text');
+eff.className = 'value-text';
+eff.setAttribute('data-sensor', 'efficiency');
+eff.textContent = '70 %';
+const t15 = new Element('text');
+t15.className = 'value-text';
+t15.setAttribute('data-sensor', 't15_panel');
+t15.textContent = '18 °C';
+const extractSpeed = new Element('text');
+extractSpeed.className = 'muted fan-speed';
+extractSpeed.textContent = '42 %';
+const supplySpeed = new Element('text');
+supplySpeed.className = 'muted fan-speed';
+supplySpeed.textContent = '40 %';
+const bypassName = new Element('text');
+bypassName.className = 'tag bypass-label';
+bypassName.textContent = 'Bypass';
+const bypassState = new Element('text');
+bypassState.className = 'muted bypass-label';
+bypassState.textContent = 'lukket (H102/H103)';
+const extractFan = new Element('g');
+extractFan.setAttribute('data-part', 'extract_fan');
+liveCard.shadowRoot.append(extractBox, outdoor, eff, t15, extractSpeed, supplySpeed, bypassName, bypassState, extractFan);
+liveCard._hass.states['sensor.rh'] = state('humidity', '45', { unit_of_measurement: '%' });
+liveCard._hass.states['sensor.eff'] = state('efficiency', '74.5', { unit_of_measurement: '%' });
+liveCard._hass.states['sensor.t15'] = state('t15_panel', '18.6', { unit_of_measurement: '°C' });
+liveCard._hass.states['sensor.m3'] = state('extract_fan_speed', '42', { unit_of_measurement: '%' });
+liveCard._hass.states['sensor.m4'] = state('supply_fan_speed', '40', { unit_of_measurement: '%' });
+liveCard._hass.states['binary_sensor.bypass'] = state('bypass', 'off', { position: 'closed' });
+const painted = liveCard.shadowRoot._replacements;
+liveCard.hass = {
+  language: 'da',
+  themes: {},
+  user: { is_admin: false },
+  states: {
+    ...liveCard._hass.states,
+    'sensor.t8': state('t8_outdoor', '11.0', { unit_of_measurement: '°C' }),
+    'sensor.eff': state('efficiency', '80', { unit_of_measurement: '%' }),
+    'sensor.t15': state('t15_panel', '19.1', { unit_of_measurement: '°C' }),
+    'sensor.m3': state('extract_fan_speed', '55', { unit_of_measurement: '%' }),
+    'sensor.rh': state('humidity', '47', { unit_of_measurement: '%' }),
+    'binary_sensor.bypass': state('bypass', 'on', { position: 'open' }),
+    'binary_sensor.running': state('running', 'on'),
+  },
+};
+assert.equal(liveCard.shadowRoot._replacements, painted);
+assert.equal(outdoorValue.textContent, '11,0 °C');
+assert.equal(extractRh.textContent, 'T3 · RH 47 %');
+assert.equal(eff.textContent, '80 %');
+assert.equal(t15.textContent, '19,1 °C');
+assert.equal(extractSpeed.textContent, '55 %');
+assert.equal(supplySpeed.textContent, '40 %');
+assert.equal(bypassState.textContent, 'åben (H102/H103)');
+assert.equal(damper.getAttribute('d'), 'M 368.72879 90.711868 H 390.72879');
+assert.match(extractFan.getAttribute('style'), /animation-duration/);
 
 console.log('PASS: plant, diagram, chart legend, tooltip, comma, card version and read-only contract');

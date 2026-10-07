@@ -208,14 +208,40 @@ class NilanCard extends HTMLElement {
     const root = this.shadowRoot;
     if (!root?.querySelectorAll) return;
     this.refreshLive();
+    this.patchDiagram(root);
+  }
+  patchDiagram(root) {
+    const boxes = { out: 't8_outdoor', ext: 't3_extract', exh: 't4_exhaust', sup: 't7_supply' };
+    root.querySelectorAll('.value-text').forEach((node) => {
+      const sensor = node.getAttribute?.('data-sensor') || node.dataset?.sensor;
+      if (sensor === 'efficiency' || sensor === 't15_panel') {
+        node.textContent = this.text(sensor);
+        return;
+      }
+      const cls = String(node.parentElement?.className || '');
+      const key = Object.keys(boxes).find((tone) => cls.split(/\s+/).includes(tone));
+      if (key) node.textContent = this.text(boxes[key]);
+    });
+    root.querySelectorAll('.channel-value').forEach((node) => {
+      const cls = String(node.className || '');
+      if (!cls.split(/\s+/).includes('ext')) return;
+      node.querySelectorAll('.muted').forEach((label) => {
+        if (String(label.textContent || '').includes('RH') || label.dataset?.rh === '1') {
+          label.textContent = `T3 · RH ${this.text('humidity')}`;
+        }
+      });
+    });
+    const speeds = root.querySelectorAll('.fan-speed');
+    if (speeds[0]) speeds[0].textContent = this.text('extract_fan_speed');
+    if (speeds[1]) speeds[1].textContent = this.text('supply_fan_speed');
+    const labels = root.querySelectorAll('.bypass-label');
+    if (labels.length > 1) labels[labels.length - 1].textContent = this.diagramBypassLine();
     const bypass = this.bypassView();
     const damper = root.querySelector('[data-part="bypass"]');
     if (damper) {
       damper.setAttribute('data-state', bypass.state);
-      const open = damper.getAttribute('data-open');
-      const closed = damper.getAttribute('data-closed');
-      if (bypass.state === 'open' && open) damper.setAttribute('d', open);
-      else if (bypass.state === 'closed' && closed) damper.setAttribute('d', closed);
+      if (bypass.state === 'open') damper.setAttribute('d', 'M 368.72879 90.711868 H 390.72879');
+      else if (bypass.state === 'closed') damper.setAttribute('d', 'm 371.16949,97.711865 14,-14');
     }
     const filterClass = this.on('filter') ? 'filter alarm' : 'filter';
     root.querySelectorAll('[data-part="filter"]').forEach((node) => node.setAttribute('class', filterClass));
@@ -226,6 +252,12 @@ class NilanCard extends HTMLElement {
       if (spin) node.setAttribute('style', `animation-duration:${spin}s`);
       else node.removeAttribute('style');
     }
+  }
+  diagramBypassLine() {
+    const bypass = this.bypassView();
+    if (bypass.state === 'open') return 'åben (H102/H103)';
+    if (bypass.state === 'closed') return 'lukket (H102/H103)';
+    return bypass.short || '';
   }
   statusPill() {
     const mode = this.display('operation_mode').text;

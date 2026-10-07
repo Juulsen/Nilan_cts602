@@ -121,7 +121,7 @@ The first time an administrator opens the card before a room entity is chosen, a
 
 ### Version 0.5.0 card
 
-Version 0.5.3 draws this overview as a larger single-line schematic: coloured duct lines with arrowheads, temperatures on the drawing, and the same inverted-V filters, hexagon and bypass. The pictures below are the 0.5.0 drawing.
+Version 0.5.2 redraws this overview: the filters meet in an inverted V, and the flow lines, exchanger name and fan names are gone. The pictures below are the 0.5.0 drawing.
 
 The overview is only the counterflow cross-section: outdoor air in at the top left, exhaust out at the bottom left, extract air in at the top right and supply air out at the bottom right. The exchanger is a hexagon spanning both ducts. The filters meet above it, and the fans and the bypass damper stay on the drawing. Tapping a value opens its history. On a narrow screen the drawing scales and the values move to a grid.
 
