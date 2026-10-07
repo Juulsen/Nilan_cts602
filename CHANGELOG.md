@@ -4,6 +4,10 @@ All notable changes to **Nilan CTS602 by Juulsen** are documented in this file.
 
 The project follows [Semantic Versioning](https://semver.org/). During the pre-1.0 development phase, minor releases can add entities and dashboard behaviour while the hardware interface is being verified.
 
+## [0.6.1] - 2026-10-07
+
+- The fan rotors are drawn on top of the supplied discs and spin about the fan centre. The blades stay visible, and a fan at 0 % does not spin. Hass updates change only the animation duration, so the centre is kept. The drawings in `frontend/art` are unchanged. Dashboard resource: `/nilan_cts602-static/nilan-card.js?v=0.6.1`.
+
 ## [0.6.0] - 2026-10-07
 
 - The overview drawing scales to the card width (`width: 100%`, height auto, `preserveAspectRatio` meet), including portrait widths from 320 px to 699 px.

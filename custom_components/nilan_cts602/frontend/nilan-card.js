@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Juulsen
 /* Nilan CTS602 dashboard. Writes go through number, select and button entities. */
-const NILAN_VERSION = '0.6.0';
+const NILAN_VERSION = '0.6.1';
 const NILAN_AUTHOR = 'Juulsen';
 const NILAN_STATIC = '/nilan_cts602-static/';
 const HISTORY_REFRESH_MS = 300000;
@@ -274,11 +274,10 @@ class NilanCard extends HTMLElement {
     const filterClass = this.on('filter') ? 'filter alarm' : 'filter';
     root.querySelectorAll('[data-part="filter"]').forEach((node) => node.setAttribute('class', filterClass));
     for (const [part, key] of [['extract_fan', 'extract_fan_speed'], ['supply_fan', 'supply_fan_speed']]) {
-      const node = root.querySelector(`[data-part="${part}"]`);
+      const node = [...root.querySelectorAll('.nilan-rotor')].find((item) => item.getAttribute('data-part') === part);
       if (!node) continue;
       const spin = this.pace(this.text(key), '');
-      if (spin) node.setAttribute('style', `animation-duration:${spin}s`);
-      else node.removeAttribute('style');
+      node.style.animationDuration = spin ? `${spin}s` : '';
     }
   }
   diagramBypassLine() {
@@ -402,6 +401,7 @@ class NilanCard extends HTMLElement {
     }
     if (this._helpItem) this.openHelp(this._helpItem);
     if (this._confirm) this.paintConfirm();
+    this.patchDiagram(root);
   }
   header(card) {
     const head = el('header');
@@ -918,7 +918,8 @@ const CARD_CSS = `
   --hx-fill:#f3faf6;--hx-line:#2f8a4a;
   --plaque:#e7f6ee;--plaque-line:#2f8a4a;--panel:#fff7e8;--panel-line:#e0b15a;
   --filter-fill:#e5f6ee;--filter-stroke:#2f8a4a;--alarm:#c4473a;--drop:#7eb7d8;
-  --flow-outdoor:#2f6fe0;--flow-extract:#d4533a;--flow-exhaust:#6b5bd0;--flow-supply:#e08a2c
+  --flow-outdoor:#2f6fe0;--flow-extract:#d4533a;--flow-exhaust:#6b5bd0;--flow-supply:#e08a2c;
+  --nilan-blade:#e8eaed;--nilan-hub:#1c2328;--nilan-hub-stroke:#f4f7fa
 }
 :host([data-hmi="dark"]){
   color:#e7eef4;
@@ -928,7 +929,8 @@ const CARD_CSS = `
   --hx-fill:#15241c;--hx-line:#8fd4a8;
   --plaque:#163228;--plaque-line:#3d9a62;--panel:#3a2e18;--panel-line:#e0b15a;
   --filter-fill:#1a3328;--filter-stroke:#8fd4a8;--alarm:#ff8d82;--drop:#8ec8e6;
-  --flow-outdoor:#7eb0ff;--flow-extract:#ff8d72;--flow-exhaust:#c4b6f5;--flow-supply:#ffb15a
+  --flow-outdoor:#7eb0ff;--flow-extract:#ff8d72;--flow-exhaust:#c4b6f5;--flow-supply:#ffb15a;
+  --nilan-blade:#f4f7fa;--nilan-hub:#0e1419;--nilan-hub-stroke:#e7eef4
 }
 ha-card{display:block;background:var(--card-bg,#f4f7fa);border-radius:18px;padding:14px 14px 8px;overflow:hidden}
 header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;min-width:0}
@@ -951,13 +953,15 @@ nav button.active{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08);font-weig
 .tab-fade{display:none}
 .stage{min-height:360px}
 .diagram{width:100%;min-width:0;min-height:0;overflow:visible}
-.diagram svg{width:100%;max-width:100%;height:auto;display:block}
+.diagram svg{width:100%;max-width:100%;height:auto;display:block;overflow:hidden}
 .diagram svg .nilan-value{cursor:pointer}
 .diagram svg .nilan-flow{animation:nilan-chevron 1.6s ease-in-out infinite}
-.diagram svg [data-part="extract_fan"],.diagram svg [data-part="supply_fan"]{animation:nilan-spin linear infinite}
+.diagram svg .nilan-rotor{transform-box:view-box;transform-origin:0 0;animation:nilan-spin linear infinite}
+.diagram svg .nilan-blade{fill:var(--nilan-blade,#e8eaed)}
+.diagram svg .nilan-hub{fill:var(--nilan-hub,#1c2328);stroke:var(--nilan-hub-stroke,#f4f7fa);stroke-width:1.25}
 @keyframes nilan-chevron{0%,100%{opacity:1}45%{opacity:.22}55%{opacity:.22}}
 @keyframes nilan-spin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion: reduce){.diagram svg .nilan-flow,.diagram svg [data-part="extract_fan"],.diagram svg [data-part="supply_fan"]{animation:none}}
+@media (prefers-reduced-motion: reduce){.diagram svg .nilan-flow,.diagram svg .nilan-rotor{animation:none}}
 section{background:#fff;border:1px solid #e1e7ee;border-radius:16px;padding:14px;margin:0 0 12px}
 :host([data-hmi="dark"]) section{background:#171e27;border-color:#2a3644}
 .setting{padding:10px 0;border-top:1px solid #eef2f6}

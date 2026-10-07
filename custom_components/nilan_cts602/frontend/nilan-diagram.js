@@ -167,15 +167,26 @@
     });
   }
 
+  function rotor(part) {
+    const blade = 'M 0,-4 C 12,-8 22,-28 7,-30 -2,-18 -1,-8 0,-4 Z';
+    const blades = [0, 120, -120].map((angle) => (
+      `<path class='nilan-blade' d='${blade}' transform='rotate(${angle})'/>`
+    )).join('');
+    return `<g class='nilan-rotor' data-part='${part}'><circle r='30' fill='none'/>${blades}<circle r='5.5' class='nilan-hub'/></g>`;
+  }
+
   function tagFans(svg, portrait) {
     const fans = portrait
       ? [["64", "545", "extract_fan"], ["64", "285", "supply_fan"]]
       : [["330", "360", "extract_fan"], ["870", "360", "supply_fan"]];
+    const scale = portrait ? 0.8 : 1.15;
     for (const [cx, cy, part] of fans) {
-      const needle = `<circle cx='${cx}' cy='${cy}' r='${portrait ? 27 : 44}' class='${portrait ? "c23" : "c27"}'/>`;
-      const tagged = `<circle cx='${cx}' cy='${cy}' r='${portrait ? 27 : 44}' class='${portrait ? "c23" : "c27"}' data-part='${part}' style='transform-origin:${cx}px ${cy}px'/>`;
-      if (!svg.includes(needle)) continue;
-      svg = svg.replace(needle, tagged);
+      const ring = portrait
+        ? `<circle cx='${cx}' cy='${cy}' r='27' class='c23'/>`
+        : `<circle cx='${cx}' cy='${cy}' r='36' class='c28'/>`;
+      if (!svg.includes(ring)) continue;
+      const placed = `${ring}<g transform='translate(${cx} ${cy}) scale(${scale})'>${rotor(part)}</g>`;
+      svg = svg.replace(ring, placed);
     }
     return svg;
   }
