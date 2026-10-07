@@ -165,6 +165,12 @@ assert.match(bare, /data-sensor="t7_supply"/);
 assert.match(bare, /data-sensor="t3_extract"/);
 assert.match(bare, /data-sensor="t4_exhaust"/);
 assert.match(bare, /data-nilan-damper='1'/);
+assert.match(bare, /<g transform='translate\(330 360\) scale\(1\.15\)'><g class='nilan-rotor' data-part='extract_fan'>/);
+assert.match(bare, /<g transform='translate\(870 360\) scale\(1\.15\)'><g class='nilan-rotor' data-part='supply_fan'>/);
+assert.match(bare, /class='nilan-blade'/);
+assert.match(bare, /class='nilan-hub'/);
+assert.doesNotMatch(bare, /class='c27'[^>]*data-part/);
+assert.doesNotMatch(bare, /transform-origin:/);
 assert.doesNotMatch(bare, /data-nilan-damper='1'[^>]*transform=/);
 const fitted = context.NilanDiagram.markup({ preheater: true, reheater: 'electric' }, { bypass: 'open' });
 assert.match(fitted, /Forvarmer/);
@@ -178,6 +184,8 @@ const portrait = context.NilanDiagram.markup(context.NilanPlant.normalize({}), {
   reheater: 'Fra',
 });
 assert.match(portrait, /viewBox='0 0 400 760'/);
+assert.match(portrait, /<g transform='translate\(64 545\) scale\(0\.8\)'><g class='nilan-rotor' data-part='extract_fan'>/);
+assert.match(portrait, /<g transform='translate\(64 285\) scale\(0\.8\)'><g class='nilan-rotor' data-part='supply_fan'>/);
 assert.match(portrait, /preserveAspectRatio='xMidYMid meet'/);
 assert.match(portrait, /width='100%'/);
 assert.match(portrait, /height='auto'/);
@@ -400,9 +408,19 @@ bypassName.textContent = 'Bypass';
 const bypassState = new Element('text');
 bypassState.className = 'muted bypass-label';
 bypassState.textContent = 'lukket (H102/H103)';
+const extractMount = new Element('g');
+extractMount.setAttribute('transform', 'translate(330 360) scale(1.15)');
 const extractFan = new Element('g');
+extractFan.className = 'nilan-rotor';
 extractFan.setAttribute('data-part', 'extract_fan');
-liveCard.shadowRoot.append(extractBox, outdoor, eff, t15, extractSpeed, supplySpeed, bypassName, bypassState, extractFan);
+extractMount.append(extractFan);
+const supplyMount = new Element('g');
+supplyMount.setAttribute('transform', 'translate(870 360) scale(1.15)');
+const supplyFan = new Element('g');
+supplyFan.className = 'nilan-rotor';
+supplyFan.setAttribute('data-part', 'supply_fan');
+supplyMount.append(supplyFan);
+liveCard.shadowRoot.append(extractBox, outdoor, eff, t15, extractSpeed, supplySpeed, bypassName, bypassState, extractMount, supplyMount);
 liveCard._hass.states['sensor.rh'] = state('humidity', '45', { unit_of_measurement: '%' });
 liveCard._hass.states['sensor.eff'] = state('efficiency', '74.5', { unit_of_measurement: '%' });
 liveCard._hass.states['sensor.t15'] = state('t15_panel', '18.6', { unit_of_measurement: '°C' });
@@ -434,6 +452,36 @@ assert.equal(extractSpeed.textContent, '55 %');
 assert.equal(supplySpeed.textContent, '40 %');
 assert.equal(bypassState.textContent, 'åben (H102/H103)');
 assert.equal(damper.getAttribute('d'), 'M 368.72879 90.711868 H 390.72879');
-assert.match(extractFan.getAttribute('style'), /animation-duration/);
+assert.equal(extractMount.getAttribute('transform'), 'translate(330 360) scale(1.15)');
+assert.equal(supplyMount.getAttribute('transform'), 'translate(870 360) scale(1.15)');
+assert.equal(extractFan.getAttribute('style'), undefined);
+assert.equal(extractFan.style.animationDuration, liveCard.pace('55 %', '') + 's');
+assert.equal(supplyFan.style.animationDuration, liveCard.pace('40 %', '') + 's');
+liveCard.hass = {
+  language: 'da',
+  themes: {},
+  user: { is_admin: false },
+  states: {
+    ...liveCard._hass.states,
+    'sensor.m3': state('extract_fan_speed', '0', { unit_of_measurement: '%' }),
+    'sensor.m4': state('supply_fan_speed', '70', { unit_of_measurement: '%' }),
+  },
+};
+assert.equal(liveCard.shadowRoot._replacements, painted);
+assert.equal(extractMount.getAttribute('transform'), 'translate(330 360) scale(1.15)');
+assert.equal(supplyMount.getAttribute('transform'), 'translate(870 360) scale(1.15)');
+assert.equal(extractFan.style.animationDuration, '');
+assert.equal(supplyFan.style.animationDuration, liveCard.pace('70 %', '') + 's');
+liveCard.hass = {
+  language: 'da',
+  themes: {},
+  user: { is_admin: false },
+  states: {
+    ...liveCard._hass.states,
+    'sensor.m3': state('extract_fan_speed', '55', { unit_of_measurement: '%' }),
+  },
+};
+assert.equal(extractMount.getAttribute('transform'), 'translate(330 360) scale(1.15)');
+assert.equal(extractFan.style.animationDuration, liveCard.pace('55 %', '') + 's');
 
 console.log('PASS: plant, diagram, chart legend, tooltip, comma, card version and read-only contract');
