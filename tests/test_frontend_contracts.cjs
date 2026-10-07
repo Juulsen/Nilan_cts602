@@ -159,9 +159,33 @@ assert.match(fitted, /Forvarmer/);
 assert.match(fitted, /Eftervarmer/);
 assert.match(fitted, /forvarmer-el\.svg|nilan-option="forvarmer-el\.svg"/);
 assert.match(fitted, /transform='rotate\(45 600 452\)'/);
-const portrait = context.NilanDiagram.markup(context.NilanPlant.normalize({}), { compact: true, t7_supply: '19,4 °C' });
+const portrait = context.NilanDiagram.markup(context.NilanPlant.normalize({}), {
+  compact: true,
+  t7_supply: '19,4 °C',
+  preheater: 'Fra',
+  reheater: 'Fra',
+});
 assert.match(portrait, /viewBox='0 0 400 760'/);
 assert.match(portrait, /19,4 °C/);
+assert.doesNotMatch(portrait, /Forvarmer/);
+assert.doesNotMatch(portrait, /Eftervarmer/);
+assert.doesNotMatch(portrait, /nilan-option/);
+const inferred = context.NilanDiagram.markup(
+  { preheater: 'Fra', reheater: 'off', reheater_electric: 'off' },
+  { compact: true, preheater: 'Fra', reheater: 'Fra' },
+);
+assert.doesNotMatch(inferred, /Forvarmer/);
+assert.doesNotMatch(inferred, /Eftervarmer/);
+const portraitFitted = context.NilanDiagram.markup(
+  { preheater: true, reheater: 'water' },
+  { compact: true, preheater: 'Fra' },
+);
+assert.match(portraitFitted, /Forvarmer/);
+assert.match(portraitFitted, /Eftervarmer/);
+assert.match(portraitFitted, /forvarmer-el-mobil\.svg/);
+assert.match(portraitFitted, /eftervarmer-vand-mobil\.svg/);
+assert.match(portraitFitted, /mobil-felt-forvarmer\.svg/);
+assert.match(portraitFitted, /mobil-tekst-eftervarmer\.svg/);
 assert.match(cardSource, /hass-more-info/);
 assert.doesNotMatch(bare, /marker-end=/);
 const viewBox = bare.match(/viewBox='0 0 ([\d.]+) ([\d.]+)'/);

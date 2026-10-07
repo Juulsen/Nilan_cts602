@@ -4,6 +4,10 @@ All notable changes to **Nilan CTS602 by Juulsen** are documented in this file.
 
 The project follows [Semantic Versioning](https://semver.org/). During the pre-1.0 development phase, minor releases can add entities and dashboard behaviour while the hardware interface is being verified.
 
+## [0.5.5] - 2026-10-07
+
+- Overblik draws the preheater and reheater symbols, their labels and their status boxes only when the plant options say that heater is installed. The default is not installed. A sensor that exists, or a register that reads off ("Fra"), does not add a heater. Landscape and portrait use the same rule, including the optional text and frame images. With no heaters fitted, the base drawings stay unchanged. Dashboard resource: `/nilan_cts602-static/nilan-card.js?v=0.5.5`.
+
 ## [0.5.4] - 2026-10-07
 
 - Overblik uses the supplied ventilation drawings as the base layer, unchanged. Live values sit in the boxes already drawn on those drawings. Landscape (`ventilation-anlaeg`) is used when the card is at least 700 px wide, and portrait (`ventilation-mobil`) below that. The choice follows the card width. Optional preheater and reheater symbols use the plant options and the positions from the drawing notes. Tapping a value opens the Home Assistant more-info dialog. Dashboard resource: `/nilan_cts602-static/nilan-card.js?v=0.5.4`.
