@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Juulsen
 /* Nilan CTS602 dashboard. Writes go through number, select and button entities. */
-const NILAN_VERSION = '0.5.4';
+const NILAN_VERSION = '0.5.5';
 const NILAN_AUTHOR = 'Juulsen';
 const NILAN_STATIC = '/nilan_cts602-static/';
 const HISTORY_REFRESH_MS = 300000;
@@ -169,9 +169,9 @@ class NilanCard extends HTMLElement {
     return shown.unit ? `${shown.text} ${shown.unit}` : shown.text;
   }
   resolvedPlant() {
-    if (this.config?.plant && globalThis.NilanPlant) return NilanPlant.normalize(this.config.plant);
-    if (this.remotePlant) return this.remotePlant;
-    return globalThis.NilanPlant ? NilanPlant.normalize({}) : { reheater: 'none', room_source: 'entity', version: 2 };
+    const raw = this.config?.plant || this.remotePlant || {};
+    if (globalThis.NilanPlant) return NilanPlant.normalize(raw);
+    return { reheater: 'none', preheater: false, room_source: 'entity', version: 2 };
   }
   narrow() {
     if (this.config?.layout === 'mobile') return true;

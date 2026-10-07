@@ -108,10 +108,22 @@
     return `<text class="nilan-value" data-live="${key}" data-sensor="${key}" data-max="${w}" data-size="12" x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="Roboto, -apple-system, Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="500" fill="#e8eaed">${escapeText(text)}</text>`;
   }
 
+  function fittedHeaters(plant) {
+    // Installation comes only from the plant options. A live state such as
+    // "Fra" or "off", or the mere presence of a sensor, is not installation.
+    const source = plant && typeof plant === 'object' ? plant : {};
+    if (root.NilanPlant && typeof root.NilanPlant.normalize === 'function') {
+      return root.NilanPlant.normalize(source);
+    }
+    const preheater = source.preheater === true;
+    const reheater = source.reheater === 'electric' || source.reheater === 'water' ? source.reheater : 'none';
+    return { preheater, reheater };
+  }
+
   function options(plant, portrait, data) {
-    const fit = plant || {};
+    const fit = fittedHeaters(plant);
     const groups = [];
-    if (fit.preheater) {
+    if (fit.preheater === true) {
       if (portrait) {
         groups.push(fragment('forvarmer-el-mobil.svg', 64 - 24, 505 - 20));
         groups.push(fragment('mobil-felt-forvarmer.svg', 108, 484));
