@@ -4,6 +4,10 @@ All notable changes to **Nilan CTS602 by Juulsen** are documented in this file.
 
 The project follows [Semantic Versioning](https://semver.org/). During the pre-1.0 development phase, minor releases can add entities and dashboard behaviour while the hardware interface is being verified.
 
+## [0.5.3] - 2026-10-07
+
+- fix: dashboard jumps/refreshes while scrolling
+
 ## [0.5.2] - 2026-10-04
 
 - The overview follows the edited drawing. The filters form an inverted V over the exchanger. The flow lines, the CTS 602 tag, the exchanger name plate, the filter names and the fan names are gone. The hexagon and its hatch stay. Bypass reads "Bypass", with the state on the line below, and the damper sits under the filter apex. The sensor badges and the fans use the positions from that drawing. A vertical split runs through the housing in the theme split colour. On a wide screen the T15 panel is shorter and the temperature sits beside the label. Fan speed stays above each fan. The fans still spin with the speed. On a narrow screen that speed is 16px.

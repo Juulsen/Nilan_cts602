@@ -40,14 +40,64 @@ for (const file of ['nilan-card.js', 'nilan-plant.js', 'nilan-diagram.js', 'nila
   assert.match(source, /Copyright \(c\) 2026 Juulsen/);
 }
 
+function matches(node, selector) {
+  if (!selector) return false;
+  if (selector.startsWith('.')) return String(node.className || '').split(/\s+/).includes(selector.slice(1));
+  const attr = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/);
+  if (attr) {
+    const key = attr[1];
+    const expected = attr[2];
+    if (key.startsWith('data-')) {
+      const dataKey = key.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      const actual = node.dataset?.[dataKey] ?? node.attributes?.[key];
+      return expected === undefined ? actual != null && actual !== '' : String(actual) === expected;
+    }
+    const actual = node.attributes?.[key];
+    return expected === undefined ? actual != null : String(actual) === expected;
+  }
+  return node.tag === selector;
+}
 class Element {
-  constructor(tag) { this.tag = tag; this.children = []; this.attributes = {}; }
+  constructor(tag) {
+    this.tag = tag;
+    this.children = [];
+    this.attributes = {};
+    this.dataset = {};
+    this.style = {};
+    this.scrollLeft = 0;
+  }
   attachShadow() { return this.shadowRoot = new Element('shadow'); }
-  append(...nodes) { this.children.push(...nodes); }
-  replaceChildren(...nodes) { this.children = nodes; }
-  setAttribute(key, value) { this.attributes[key] = value; }
-  querySelector() { return null; }
-  querySelectorAll() { return []; }
+  append(...nodes) {
+    for (const node of nodes) node.parentElement = this;
+    this.children.push(...nodes);
+  }
+  replaceChildren(...nodes) { this.children = nodes; this._replacements = (this._replacements || 0) + 1; }
+  setAttribute(key, value) {
+    this.attributes[key] = value;
+    if (key.startsWith('data-')) {
+      const dataKey = key.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      this.dataset[dataKey] = value;
+    }
+  }
+  getAttribute(key) { return this.attributes[key]; }
+  toggleAttribute(key, force) {
+    if (force === false || (force === undefined && this.attributes[key] != null)) delete this.attributes[key];
+    else this.attributes[key] = '';
+  }
+  removeAttribute(key) { delete this.attributes[key]; }
+  getBoundingClientRect() { return { height: 420, width: 800, x: 0, y: 0 }; }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+  querySelectorAll(selector) {
+    const found = [];
+    const walk = (node) => {
+      for (const child of node.children || []) {
+        if (matches(child, selector)) found.push(child);
+        walk(child);
+      }
+    };
+    walk(this);
+    return found;
+  }
 }
 const definitions = new Map();
 const context = vm.createContext({
@@ -234,5 +284,118 @@ assert.equal(card.display('t8_outdoor').text, '—');
 assert.equal(card.pace('45 %', ''), '1.83');
 card._hass.states['binary_sensor.running'] = nilanState('running', 'off', {});
 assert.equal(card.pace('45 %', ''), '');
+
+const liveCard = new Card();
+liveCard._libs = true;
+liveCard.config = { language: 'da', theme: 'light', layout: 'desktop' };
+function state(key, value, extra) {
+  return { state: value, attributes: { nilan_device: 'comfort', register_key: key, unit_of_measurement: extra?.unit, ...extra } };
+}
+const t8 = state('t8_outdoor', '12.3', { unit: '°C', unit_of_measurement: '°C' });
+const running = state('running', 'on');
+const baseStates = {
+  'sensor.t8': t8,
+  'binary_sensor.running': running,
+  'sensor.mode': state('operation_mode', 'auto'),
+  'sensor.step': state('fan_step', '2'),
+  'sensor.alarms': state('alarm_count', '0'),
+};
+liveCard.hass = { language: 'da', themes: {}, user: { is_admin: false }, states: { ...baseStates, 'light.kitchen': { state: 'on', attributes: {} } } };
+const replacements = liveCard.shadowRoot._replacements;
+const probe = new Element('span');
+probe.dataset.live = 't8_outdoor';
+probe.textContent = 'old';
+liveCard.shadowRoot.append(probe);
+const damper = new Element('path');
+damper.setAttribute('data-part', 'bypass');
+damper.setAttribute('data-open', 'OPEN');
+damper.setAttribute('data-closed', 'SHUT');
+damper.setAttribute('d', 'SHUT');
+liveCard.shadowRoot.append(damper);
+liveCard.hass = {
+  language: 'da',
+  themes: {},
+  user: { is_admin: false },
+  states: { ...baseStates, 'light.kitchen': { state: 'off', attributes: { brightness: 10 } } },
+};
+assert.equal(liveCard.shadowRoot._replacements, replacements, 'unrelated hass update rebuilt the card');
+assert.equal(probe.textContent, 'old');
+const nextT8 = state('t8_outdoor', '13.5', { unit_of_measurement: '°C' });
+liveCard.hass = {
+  language: 'da',
+  themes: {},
+  user: { is_admin: false },
+  states: { ...baseStates, 'sensor.t8': nextT8 },
+};
+assert.equal(liveCard.shadowRoot._replacements, replacements, 'relevant hass update rebuilt the DOM');
+assert.equal(probe.textContent, '13,5 °C');
+assert.equal(damper.getAttribute('d'), 'SHUT');
+const extractBox = new Element('g');
+extractBox.className = 'channel-value ext';
+const extractRh = new Element('text');
+extractRh.className = 'muted';
+extractRh.textContent = 'T3 · RH 45 %';
+extractBox.append(extractRh);
+const outdoor = new Element('g');
+outdoor.className = 'channel-value out';
+const outdoorValue = new Element('text');
+outdoorValue.className = 'value-text';
+outdoorValue.textContent = '12,3 °C';
+outdoor.append(outdoorValue);
+const eff = new Element('text');
+eff.className = 'value-text';
+eff.setAttribute('data-sensor', 'efficiency');
+eff.textContent = '70 %';
+const t15 = new Element('text');
+t15.className = 'value-text';
+t15.setAttribute('data-sensor', 't15_panel');
+t15.textContent = '18 °C';
+const extractSpeed = new Element('text');
+extractSpeed.className = 'muted fan-speed';
+extractSpeed.textContent = '42 %';
+const supplySpeed = new Element('text');
+supplySpeed.className = 'muted fan-speed';
+supplySpeed.textContent = '40 %';
+const bypassName = new Element('text');
+bypassName.className = 'tag bypass-label';
+bypassName.textContent = 'Bypass';
+const bypassState = new Element('text');
+bypassState.className = 'muted bypass-label';
+bypassState.textContent = 'lukket (H102/H103)';
+const extractFan = new Element('g');
+extractFan.setAttribute('data-part', 'extract_fan');
+liveCard.shadowRoot.append(extractBox, outdoor, eff, t15, extractSpeed, supplySpeed, bypassName, bypassState, extractFan);
+liveCard._hass.states['sensor.rh'] = state('humidity', '45', { unit_of_measurement: '%' });
+liveCard._hass.states['sensor.eff'] = state('efficiency', '74.5', { unit_of_measurement: '%' });
+liveCard._hass.states['sensor.t15'] = state('t15_panel', '18.6', { unit_of_measurement: '°C' });
+liveCard._hass.states['sensor.m3'] = state('extract_fan_speed', '42', { unit_of_measurement: '%' });
+liveCard._hass.states['sensor.m4'] = state('supply_fan_speed', '40', { unit_of_measurement: '%' });
+liveCard._hass.states['binary_sensor.bypass'] = state('bypass', 'off', { position: 'closed' });
+const painted = liveCard.shadowRoot._replacements;
+liveCard.hass = {
+  language: 'da',
+  themes: {},
+  user: { is_admin: false },
+  states: {
+    ...liveCard._hass.states,
+    'sensor.t8': state('t8_outdoor', '11.0', { unit_of_measurement: '°C' }),
+    'sensor.eff': state('efficiency', '80', { unit_of_measurement: '%' }),
+    'sensor.t15': state('t15_panel', '19.1', { unit_of_measurement: '°C' }),
+    'sensor.m3': state('extract_fan_speed', '55', { unit_of_measurement: '%' }),
+    'sensor.rh': state('humidity', '47', { unit_of_measurement: '%' }),
+    'binary_sensor.bypass': state('bypass', 'on', { position: 'open' }),
+    'binary_sensor.running': state('running', 'on'),
+  },
+};
+assert.equal(liveCard.shadowRoot._replacements, painted);
+assert.equal(outdoorValue.textContent, '11,0 °C');
+assert.equal(extractRh.textContent, 'T3 · RH 47 %');
+assert.equal(eff.textContent, '80 %');
+assert.equal(t15.textContent, '19,1 °C');
+assert.equal(extractSpeed.textContent, '55 %');
+assert.equal(supplySpeed.textContent, '40 %');
+assert.equal(bypassState.textContent, 'åben (H102/H103)');
+assert.equal(damper.getAttribute('d'), 'M 368.72879 90.711868 H 390.72879');
+assert.match(extractFan.getAttribute('style'), /animation-duration/);
 
 console.log('PASS: plant, diagram, chart legend, tooltip, comma, card version and read-only contract');
