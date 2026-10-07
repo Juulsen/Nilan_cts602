@@ -11,8 +11,16 @@
 
   function normalize(raw) {
     const source = raw && typeof raw === 'object' ? raw : {};
-    let electric = flag(source.reheater_electric) || source.reheater === 'electric';
-    let water = flag(source.reheater_water) || source.reheater === 'water';
+    // Checkboxes win over a stored reheater slug, so unchecking stays off.
+    let electric;
+    let water;
+    if (Object.prototype.hasOwnProperty.call(source, 'reheater_electric') || Object.prototype.hasOwnProperty.call(source, 'reheater_water')) {
+      electric = flag(source.reheater_electric);
+      water = flag(source.reheater_water);
+    } else {
+      electric = source.reheater === 'electric';
+      water = source.reheater === 'water';
+    }
     if (electric && water) {
       if (source.reheater === 'water' && !flag(source.reheater_electric)) electric = false;
       else water = false;

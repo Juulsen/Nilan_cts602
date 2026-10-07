@@ -745,7 +745,7 @@ class NilanCard extends HTMLElement {
     card.append(alarms);
   }
   service(card) {
-    const plant = this.resolvedPlant();
+    const plant = this._plantDraft || this.resolvedPlant();
     const box = el('section');
     box.append(el('h3', this.tr('Udstyr', 'Equipment')));
     box.append(el('p', this.tr('Ændrer kun tegning og entiteter. Der skrives ikke til anlægget. El- og vand-eftervarmer udelukker hinanden.', 'Changes only the drawing and the entities. Nothing is written to the unit. Electric and water reheater exclude each other.'), 'explain'));
@@ -792,6 +792,9 @@ class NilanCard extends HTMLElement {
     draft[key] = on;
     if (key === 'reheater_electric' && on) draft.reheater_water = false;
     if (key === 'reheater_water' && on) draft.reheater_electric = false;
+    if (draft.reheater_electric) draft.reheater = 'electric';
+    else if (draft.reheater_water) draft.reheater = 'water';
+    else draft.reheater = 'none';
     this._plantDraft = draft;
     this.render();
   }
