@@ -147,7 +147,7 @@ const bare = context.NilanDiagram.markup(context.NilanPlant.normalize({}), {
   t8_outdoor: '12,3 °C',
 });
 assert.match(bare, /viewBox='0 0 1200 600'/);
-assert.match(bare, /Krydsveksler/);
+assert.match(bare, /Modstrømsveksler/);
 assert.match(bare, /Udsugning/);
 assert.match(bare, /Indblæsning/);
 assert.match(bare, />Bypass</);
