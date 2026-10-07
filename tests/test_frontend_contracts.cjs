@@ -147,6 +147,9 @@ const bare = context.NilanDiagram.markup(context.NilanPlant.normalize({}), {
   t8_outdoor: '12,3 °C',
 });
 assert.match(bare, /viewBox='0 0 1200 600'/);
+assert.match(bare, /preserveAspectRatio='xMidYMid meet'/);
+assert.match(bare, /width='100%'/);
+assert.match(bare, /height='auto'/);
 assert.match(bare, /Modstrømsveksler/);
 assert.match(bare, /Udsugning/);
 assert.match(bare, /Indblæsning/);
@@ -175,6 +178,9 @@ const portrait = context.NilanDiagram.markup(context.NilanPlant.normalize({}), {
   reheater: 'Fra',
 });
 assert.match(portrait, /viewBox='0 0 400 760'/);
+assert.match(portrait, /preserveAspectRatio='xMidYMid meet'/);
+assert.match(portrait, /width='100%'/);
+assert.match(portrait, /height='auto'/);
 assert.match(portrait, /19,4 °C/);
 assert.doesNotMatch(portrait, /Forvarmer/);
 assert.doesNotMatch(portrait, /Eftervarmer/);

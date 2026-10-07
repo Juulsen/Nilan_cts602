@@ -950,8 +950,8 @@ nav button.active{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08);font-weig
 :host([data-hmi="dark"]) nav button.active{background:#1c2630}
 .tab-fade{display:none}
 .stage{min-height:360px}
-.diagram{width:100%;min-width:0;min-height:240px}
-.diagram svg{width:100%;height:auto;display:block}
+.diagram{width:100%;min-width:0;min-height:0;overflow:visible}
+.diagram svg{width:100%;max-width:100%;height:auto;display:block}
 .diagram svg .nilan-value{cursor:pointer}
 .diagram svg .nilan-flow{animation:nilan-chevron 1.6s ease-in-out infinite}
 .diagram svg [data-part="extract_fan"],.diagram svg [data-part="supply_fan"]{animation:nilan-spin linear infinite}

@@ -200,6 +200,9 @@
     const portrait = !!data.compact;
     let svg = portrait ? MOBILE_SVG : DESKTOP_SVG;
     svg = svg.replace(/<\?xml[^?]*\?>/, '');
+    svg = svg.replace(/<svg\b/, "<svg preserveAspectRatio='xMidYMid meet'");
+    svg = svg.replace(/\swidth='[^']+'/, " width='100%'");
+    svg = svg.replace(/\sheight='[^']+'/, " height='auto'");
     svg = tagChevrons(svg, portrait ? CHEVRON.mobile : CHEVRON.desktop);
     svg = tagFans(svg, portrait);
     svg = tagDamper(svg, portrait, data.bypass === 'open');

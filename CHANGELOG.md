@@ -6,6 +6,7 @@ The project follows [Semantic Versioning](https://semver.org/). During the pre-1
 
 ## [0.6.0] - 2026-10-07
 
+- The overview drawing scales to the card width (`width: 100%`, height auto, `preserveAspectRatio` meet), including portrait widths from 320 px to 699 px.
 - Overblik uses the locked v2 drawings: udeluft and afkast have swapped, the extract fan sits on the afkast duct, and the exchanger is the octagon "Modstrømsveksler". The SVG files are embedded unchanged. Live values are placed from the boxes in those files. The preheater symbol, its label and its status box follow the new coordinates. Dashboard resource: `/nilan_cts602-static/nilan-card.js?v=0.6.0`.
 
 ## [0.5.5] - 2026-10-07
