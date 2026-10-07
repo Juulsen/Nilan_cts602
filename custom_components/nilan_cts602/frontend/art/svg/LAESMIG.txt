@@ -1,0 +1,11 @@
+Ventilation SVG-eksport (dashboard-ventilation) 2026-09-30
+ventilation-anlaeg.svg  : landskabs-grundbillede (1200x600) uden tilvalg
+ventilation-mobil.svg   : portraet-grundbillede (400x760) uden tilvalg
+svg/forvarmer-el.svg, forvarmer-vand.svg, eftervarmer-el.svg, eftervarmer-vand.svg : komponenter til Anlaeg (vandret kanal)
+   (el og vand bruger samme symbol for for- og eftervarmer; placering bestemmer rollen)
+svg/*-mobil.svg : samme komponenter til Mobil (lodret kanal)
+svg/*tekst*/felt*/panelraekke* : betingede tekst-/rammebilleder
+Placering (viewBox-koordinater, centrum):
+ Anlaeg: forvarmer el (340,360) vand (390,370) | eftervarmer el (945,360) vand (990,370) | bredde 44
+ Mobil : forvarmer el (64,505) vand (53,551) | eftervarmer el (64,233) vand (53,199) | bredde 48 / 70
+Styres af input_boolean.vent_vis_forvarmer_el / _forvarmer_vand / _eftervarmer_el / _eftervarmer_vand

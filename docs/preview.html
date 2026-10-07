@@ -36,10 +36,11 @@
     const themeParam = params.get('theme') || 'light';
     const theme = ['light', 'dark', 'auto'].includes(themeParam) ? themeParam : 'light';
     const darkPage = theme === 'dark' || (theme === 'auto' && params.get('dark') === '1');
-    const layout = params.get('layout') === 'mobile' ? 'mobile' : 'desktop';
+    const layout = params.get('layout');
+    const width = params.get('width') || (layout === 'mobile' ? '390' : '1120');
     const tab = params.get('tab') || 'overview';
     document.documentElement.dataset.theme = darkPage ? 'dark' : 'light';
-    document.documentElement.style.setProperty('--card-width', layout === 'desktop' ? '1120px' : '390px');
+    document.documentElement.style.setProperty('--card-width', `${width}px`);
 
     const LABELS = {
       ventilation: 'Ventilation', auto: 'Auto', heat: 'Varme', cool: 'Køl', on: 'Til', off: 'Fra',
@@ -81,6 +82,7 @@
       entity('filter_days_left', '42', { unit_of_measurement: 'd', friendly_name: 'Dage til filterskift' }),
       entity('alarm_count', '0', { friendly_name: 'Antal alarmer' }),
       entity('efficiency', '74.5', { unit_of_measurement: '%', friendly_name: 'Varmegenvinding' }),
+      entity('display_text', 'Auto  21.0', { friendly_name: 'Display' }),
       entity('room_temperature', '21.4', { unit_of_measurement: '°C', device_class: 'temperature', friendly_name: 'Rumtemperatur' }),
       entity('running', 'on', { friendly_name: 'Kører' }),
       entity('summer', 'off', { friendly_name: 'Sommer' }),
@@ -152,7 +154,7 @@
     card.setConfig({
       language: 'da',
       theme,
-      layout,
+      ...(layout === 'mobile' || layout === 'desktop' ? { layout } : {}),
       tab,
       plant,
       preview: true,

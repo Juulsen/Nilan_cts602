@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Juulsen
 /* Nilan CTS602 dashboard. Writes go through number, select and button entities. */
-const NILAN_VERSION = '0.5.3';
+const NILAN_VERSION = '0.5.4';
 const NILAN_AUTHOR = 'Juulsen';
 const NILAN_STATIC = '/nilan_cts602-static/';
 const HISTORY_REFRESH_MS = 300000;
@@ -35,6 +35,17 @@ class NilanCard extends HTMLElement {
     this.tab = 'overview';
     this._draft = {};
     this._history = null;
+  }
+  connectedCallback() {
+    if (typeof ResizeObserver !== 'function') return;
+    this._widthObserver = new ResizeObserver(() => {
+      if (!this._painted || !this._libs) return;
+      if (this.narrow() !== this._paintedNarrow) this.render();
+    });
+    this._widthObserver.observe(this);
+  }
+  disconnectedCallback() {
+    if (this._widthObserver) this._widthObserver.disconnect();
   }
   setConfig(config) {
     this.config = { ...config };
@@ -165,7 +176,9 @@ class NilanCard extends HTMLElement {
   narrow() {
     if (this.config?.layout === 'mobile') return true;
     if (this.config?.layout === 'desktop') return false;
-    return (this.getBoundingClientRect().width || 800) < 700;
+    const width = this.getBoundingClientRect().width;
+    if (!width) return false;
+    return width < 700;
   }
   async entryId() {
     if (this.config?.entry_id) return this.config.entry_id;
@@ -195,11 +208,20 @@ class NilanCard extends HTMLElement {
       return left == null ? '—' : `${this.fmt(left, 0)} d`;
     }
     if (key === 'fmt:season') return this.on('summer') ? this.tr('Sommer', 'Summer') : this.tr('Vinter', 'Winter');
+    if (key === 'fmt:filter_warn') return this.on('filter') ? this.tr('Alarm', 'Alarm') : 'OK';
+    if (key === 'fmt:display') {
+      const panel = this.display('display_text');
+      if (panel.text !== '—') return panel.unit ? `${panel.text} ${panel.unit}` : panel.text;
+      const state = this.display('control_state');
+      if (state.text !== '—') return state.text;
+      return this.display('operation_mode').text;
+    }
     const shown = this.display(key);
     return shown.unit ? `${shown.text} ${shown.unit}` : shown.text;
   }
   applyLive(node) {
     node.textContent = this.liveText(node.dataset.live);
+    if (globalThis.NilanDiagram?.fit) NilanDiagram.fit(node);
   }
   refreshLive() {
     this.shadowRoot.querySelectorAll('[data-live]').forEach((node) => this.applyLive(node));
@@ -327,11 +349,14 @@ class NilanCard extends HTMLElement {
     root.replaceChildren();
     const style = el('style');
     style.textContent = CARD_CSS;
+    root.append(style);
+    const narrow = this.narrow();
+    this._layoutNarrow = narrow;
     const card = document.createElement('ha-card');
     card.dataset.hmi = theme;
     this.toggleAttribute('data-hmi', true);
     this.dataset.hmi = theme;
-    this.toggleAttribute('data-narrow', this.narrow());
+    this.toggleAttribute('data-narrow', narrow);
     if (this._error) card.append(el('p', this._error));
     else if (!this._libs || !globalThis.NilanDiagram) card.append(el('p', 'Nilan…'));
     else {
@@ -348,14 +373,23 @@ class NilanCard extends HTMLElement {
       card.append(stage);
       this.footer(card);
     }
-    root.append(style, card);
+    root.append(card);
     const nextNav = root.querySelector('nav');
     if (nextNav) nextNav.scrollLeft = tabScroll;
     this._painted = true;
     this._paintedTheme = theme;
-    this._paintedNarrow = this.narrow();
+    this._paintedNarrow = narrow;
     this._paintedTab = this.tab;
     this._paintedPlant = JSON.stringify(this.resolvedPlant());
+    if (typeof requestAnimationFrame === 'function' && (this._widthTries || 0) < 2) {
+      requestAnimationFrame(() => {
+        if (!this.isConnected || !this._painted) return;
+        if (!this.getBoundingClientRect().width) return;
+        if (this.narrow() === this._paintedNarrow) return;
+        this._widthTries = (this._widthTries || 0) + 1;
+        this.render();
+      });
+    }
     if (this.config?.demoConfirm && globalThis.NilanSettings) {
       const sample = NilanSettings.SETTINGS.find((item) => item.key === 'ctrl_fan_step');
       if (sample) this.openConfirm(sample, '3');
@@ -404,71 +438,33 @@ class NilanCard extends HTMLElement {
     const plant = this.resolvedPlant();
     const bypass = this.bypassView();
     const host = el('div', undefined, 'diagram');
+    const keys = [
+      't4_exhaust', 't3_extract', 't8_outdoor', 't7_supply', 'humidity',
+      'extract_fan_speed', 'supply_fan_speed', 'efficiency', 'control_state',
+      'operation_mode', 'fan_step', 'alarm_count', 'set_temperature',
+      'filter_days_left', 'filter_days_since', 't0_controller', 'preheater', 'reheater',
+    ];
+    const values = {};
+    for (const key of keys) values[key] = this.text(key);
+    values['fmt:display'] = this.liveText('fmt:display');
+    values['fmt:season'] = this.liveText('fmt:season');
+    values['fmt:filter_warn'] = this.liveText('fmt:filter_warn');
+    values['fmt:bypass'] = this.liveText('fmt:bypass');
     host.innerHTML = NilanDiagram.markup(plant, {
-      t8: this.text('t8_outdoor'),
-      t3: this.text('t3_extract'),
-      t4: this.text('t4_exhaust'),
-      t7: this.text('t7_supply'),
-      t15: this.text('t15_panel'),
-      rh: this.text('humidity'),
-      eff: this.text('efficiency'),
-      m3: this.text('extract_fan_speed'),
-      m4: this.text('supply_fan_speed'),
+      ...values,
       bypass: bypass.state,
-      bypassLabel: bypass.short || '',
-      filterAlarm: this.on('filter'),
-      running: this.on('running'),
-      extractSpin: this.pace(this.text('extract_fan_speed'), ''),
-      supplySpin: this.pace(this.text('supply_fan_speed'), ''),
-      compact: this.narrow(),
+      compact: this._layoutNarrow,
     });
+    const sensorFor = {
+      'fmt:display': 'display_text',
+      'fmt:season': 'summer',
+      'fmt:filter_warn': 'filter',
+      'fmt:bypass': 'bypass',
+    };
     host.querySelectorAll('[data-sensor]').forEach((node) => {
-      node.style.cursor = 'pointer';
-      node.onclick = () => this.openHistory(node.dataset.sensor === 'humidity' ? 'humidity' : node.dataset.sensor);
+      node.onclick = () => this.openHistory(sensorFor[node.dataset.live] || node.dataset.sensor);
     });
     card.append(host);
-    const chips = el('div', undefined, 'chips');
-    const season = this.on('summer') ? this.tr('Sommer', 'Summer') : this.tr('Vinter', 'Winter');
-    const bypassChip = bypass.state === 'closed' ? this.tr('Lukket', 'Closed') : bypass.state === 'open' ? this.tr('Åben', 'Open') : (bypass.short || '—');
-    const filterLeft = this.num('filter_days_left');
-    const chipRows = [
-      [this.tr('Fugt (RH, fraluft)', 'Humidity (RH, extract)'), this.text('humidity'), '', 'humidity'],
-      [this.tr('Bypass M7', 'Bypass M7'), bypassChip, '', 'fmt:bypass'],
-      [this.tr('Filter, dage til skift', 'Filter, days to change'), filterLeft == null ? '—' : `${this.fmt(filterLeft, 0)} d`, '', 'fmt:filter'],
-      [this.tr('Setpunkt', 'Setpoint'), this.text('set_temperature'), '', 'set_temperature'],
-      [this.tr('T15 panel (loft)', 'T15 panel (loft)'), this.text('t15_panel'), 'warm', 't15_panel'],
-      [this.tr('Sommer/vinter', 'Summer/winter'), season, '', 'fmt:season'],
-    ];
-    for (const [label, value, cls, live] of chipRows) {
-      const chip = el('div', undefined, `chip ${cls}`.trim());
-      const strong = el('strong', value);
-      strong.dataset.live = live;
-      chip.append(el('small', label), strong);
-      chips.append(chip);
-    }
-    card.append(chips);
-    const grid = el('div', undefined, 'value-grid');
-    for (const [key, da, en] of [
-      ['t8_outdoor', 'T8 udeluft', 'T8 outdoor'],
-      ['t3_extract', 'T3 fraluft', 'T3 extract'],
-      ['t4_exhaust', 'T4 afkast', 'T4 exhaust'],
-      ['t7_supply', 'T7 tilluft', 'T7 supply'],
-      ['humidity', 'Fugt', 'Humidity'],
-      ['bypass', 'Bypass', 'Bypass'],
-      ['filter_days_left', 'Filter', 'Filter'],
-      ['t15_panel', 'T15 (loft)', 'T15 (loft)'],
-    ]) {
-      const tile = el('button', undefined, key === 't15_panel' ? 'tile warm' : 'tile');
-      tile.type = 'button';
-      tile.append(el('small', this.tr(da, en)));
-      const value = key === 'bypass' ? bypass.short || '—' : key === 'filter_days_left' ? (this.num(key) == null ? '—' : `${this.fmt(this.num(key), 0)} d`) : this.text(key);
-      const strong = el('strong', value);
-      strong.dataset.live = key === 'bypass' ? 'fmt:bypass' : key === 'filter_days_left' ? 'fmt:filter' : key;
-      tile.append(strong);
-      if (key !== 'bypass') tile.onclick = () => this.openHistory(key);
-      grid.append(tile);
-    }
-    card.append(grid);
   }
   settings(card) {
     const plant = this.resolvedPlant();
@@ -812,7 +808,16 @@ class NilanCard extends HTMLElement {
     this.render();
   }
   openHistory(key) {
+    const match = this.find(key);
+    if (match) {
+      this.dispatchEvent(new CustomEvent('hass-more-info', {
+        bubbles: true,
+        composed: true,
+        detail: { entityId: match[0] },
+      }));
+    }
     this._historyKey = key;
+    if (!this.config?.preview) return;
     this.ensureHistory().then(() => {
       const overlay = el('div', undefined, 'overlay');
       const dialog = el('div', undefined, 'dialog');
@@ -938,6 +943,10 @@ nav button.active{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08);font-weig
 .stage{min-height:360px}
 .diagram{width:100%;min-width:0;min-height:240px}
 .diagram svg{width:100%;height:auto;display:block}
+.diagram svg .nilan-value{cursor:pointer}
+.diagram svg .nilan-flow{animation:nilan-chevron 1.6s ease-in-out infinite}
+@keyframes nilan-chevron{0%,100%{opacity:1}45%{opacity:.22}55%{opacity:.22}}
+@media (prefers-reduced-motion: reduce){.diagram svg .nilan-flow{animation:none}}
 section{background:#fff;border:1px solid #e1e7ee;border-radius:16px;padding:14px;margin:0 0 12px}
 :host([data-hmi="dark"]) section{background:#171e27;border-color:#2a3644}
 .setting{padding:10px 0;border-top:1px solid #eef2f6}

@@ -27,7 +27,10 @@ assert.match(cardSource, /Bypass lukket/);
 assert.match(cardSource, /Bypass åben/);
 assert.match(cardSource, /Bypass åbner…/);
 assert.match(cardSource, /seneste kendte/);
-assert.match(diagramSource, /prefers-reduced-motion/);
+assert.match(cardSource, /prefers-reduced-motion/);
+assert.match(cardSource, /ResizeObserver/);
+assert.match(cardSource, /getGridOptions/);
+assert.match(cardSource, /min_columns: 6/);
 assert.doesNotMatch(cardSource, /Utilgængelig/);
 assert.doesNotMatch(cardSource, /bus \$\{protocol\}/);
 assert.doesNotMatch(cardSource, /'Veksler'/);
@@ -124,62 +127,59 @@ assert.equal(plant.options_board, false);
 assert.equal(plant.experimental, false);
 assert.equal(context.NilanPlant.normalize({ reheater_electric: true, reheater_water: true }).reheater, 'electric');
 
-const bare = context.NilanDiagram.markup(context.NilanPlant.normalize({}), { t8: '12,3 °C', bypass: 'closed', m3: '42 %', m4: '40 %' });
-for (const part of ['exchanger', 'supply_fan', 'extract_fan', 'filter', 'bypass']) {
-  assert.match(bare, new RegExp(`data-part="${part}"`));
-}
-assert.doesNotMatch(bare, /data-part="preheater"/);
-assert.doesNotMatch(bare, /data-part="reheater"/);
-const fitted = context.NilanDiagram.markup({ preheater: true, reheater: 'electric' }, { bypass: 'open', filterAlarm: true });
-assert.match(fitted, /data-part="preheater"/);
-assert.match(fitted, /data-part="reheater"/);
-assert.match(fitted, /data-state="open"/);
-assert.match(bare, /data-diagram="counterflow"/);
-assert.match(bare, /hx-hex/);
-assert.match(bare, /Modstrømsveksler/);
-assert.doesNotMatch(bare, /rotary|ROT1|hx-diamond|cross-flow/);
-assert.match(bare, /Fraluft/);
-assert.match(bare, /Tilluft/);
+const artDesktop = fs.readFileSync(path.join(root, 'art/ventilation-anlaeg.svg'), 'utf8');
+const artMobile = fs.readFileSync(path.join(root, 'art/ventilation-mobil.svg'), 'utf8');
+assert.ok(diagramSource.includes(artDesktop));
+assert.ok(diagramSource.includes(artMobile));
+const bare = context.NilanDiagram.markup(context.NilanPlant.normalize({}), {
+  bypass: 'closed',
+  extract_fan_speed: '42 %',
+  supply_fan_speed: '40 %',
+  t8_outdoor: '12,3 °C',
+});
+assert.match(bare, /viewBox='0 0 1200 600'/);
+assert.match(bare, /Krydsveksler/);
+assert.match(bare, /Udsugning/);
+assert.match(bare, /Indblæsning/);
 assert.match(bare, />Bypass</);
-assert.doesNotMatch(bare, /Bypass M7/);
-assert.doesNotMatch(bare, /M3 fraluft/);
-assert.doesNotMatch(bare, /M4 tilluft/);
-assert.doesNotMatch(bare, /flow-dash/);
-assert.doesNotMatch(bare, /CTS 602/);
-assert.match(bare, /data-part="centre-split"/);
+assert.doesNotMatch(bare, /Forvarmer/);
+assert.doesNotMatch(bare, /Eftervarmer/);
 assert.match(bare, /42 %/);
 assert.match(bare, /40 %/);
-assert.match(diagramSource, /fill:var\(--hmi-ink\)/);
-assert.match(diagramSource, /nilan-spin/);
+assert.match(bare, /12,3 °C/);
 assert.match(bare, /data-sensor="humidity"/);
-assert.match(bare, /Udeluft/);
-assert.match(bare, /Afkast/);
-assert.doesNotMatch(bare, />ukendt</);
-assert.equal((bare.match(/data-part="filter"/g) || []).length, 2);
 assert.match(bare, /data-sensor="t8_outdoor"/);
 assert.match(bare, /data-sensor="t7_supply"/);
 assert.match(bare, /data-sensor="t3_extract"/);
 assert.match(bare, /data-sensor="t4_exhaust"/);
-assert.match(bare, /data-part="exchanger"/);
-assert.match(cardSource, /T15 panel \(loft\)/);
-assert.doesNotMatch(bare, />HX</);
+assert.match(bare, /data-nilan-damper='1'/);
+assert.doesNotMatch(bare, /data-nilan-damper='1'[^>]*transform=/);
+const fitted = context.NilanDiagram.markup({ preheater: true, reheater: 'electric' }, { bypass: 'open' });
+assert.match(fitted, /Forvarmer/);
+assert.match(fitted, /Eftervarmer/);
+assert.match(fitted, /forvarmer-el\.svg|nilan-option="forvarmer-el\.svg"/);
+assert.match(fitted, /transform='rotate\(45 600 452\)'/);
+const portrait = context.NilanDiagram.markup(context.NilanPlant.normalize({}), { compact: true, t7_supply: '19,4 °C' });
+assert.match(portrait, /viewBox='0 0 400 760'/);
+assert.match(portrait, /19,4 °C/);
+assert.match(cardSource, /hass-more-info/);
 assert.doesNotMatch(bare, /marker-end=/);
-assert.match(fitted, /data-state="open"/);
-assert.match(fitted, /class="filter alarm"/);
-const viewBox = bare.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+const viewBox = bare.match(/viewBox='0 0 ([\d.]+) ([\d.]+)'/);
 assert.ok(viewBox);
 const boxW = Number(viewBox[1]);
 const boxH = Number(viewBox[2]);
 for (const match of bare.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)) {
   const attrs = match[1];
+  if (!attrs.includes('nilan-value')) continue;
   const label = match[2];
   const x = Number((attrs.match(/\bx="([^"]+)"/) || [])[1]);
   const y = Number((attrs.match(/\by="([^"]+)"/) || [])[1]);
   assert.ok(x >= 4 && x <= boxW - 4, `${label} x=${x} leaves the diagram`);
   assert.ok(y >= 8 && y <= boxH - 2, `${label} y=${y} leaves the diagram`);
 }
-const valueFont = Number((bare.match(/class="value-text" font-size="(\d+)"/) || [])[1]);
-assert.ok(valueFont * 390 / boxW >= 11, `value font ${valueFont} in viewBox ${boxW} is under 11px at 390px`);
+const portraitBox = portrait.match(/viewBox='0 0 ([\d.]+) ([\d.]+)'/);
+const portraitFont = Number((portrait.match(/data-sensor="t7_supply"[^>]*font-size="([\d.]+)"/) || portrait.match(/font-size="([\d.]+)"[^>]*data-sensor="t7_supply"/) || [])[1]);
+assert.ok(portraitFont * 390 / Number(portraitBox[1]) >= 11, `value font ${portraitFont} is under 11px at 390px`);
 assert.match(cardSource, /data-hmi/);
 assert.match(cardSource, /significant_changes_only:\s*false/);
 assert.match(cardSource, /hmiTheme/);
@@ -189,8 +189,7 @@ assert.match(cardSource, /chart-empty/);
 assert.match(cardSource, /overflow-wrap:anywhere/);
 assert.match(cardSource, /Ventilation – Nilan Comfort 300 LR/);
 assert.match(cardSource, /--hmi-housing:#1b222c/);
-assert.match(diagramSource, /var\(--hmi-housing\)/);
-assert.match(diagramSource, /var\(--hmi-ink\)/);
+assert.match(artDesktop, /#1c1c1c/);
 assert.doesNotMatch(cardSource, /Diagram skaleres/);
 assert.match(cardSource, /themes\?\.darkMode/);
 
