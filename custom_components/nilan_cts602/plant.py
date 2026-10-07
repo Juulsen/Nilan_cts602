@@ -66,8 +66,14 @@ def normalize_plant(raw: Mapping[str, Any] | None) -> dict[str, Any]:
     """Return a forward-compatible plant description."""
 
     source = raw if isinstance(raw, Mapping) else {}
-    electric = _flag(source.get("reheater_electric")) or source.get("reheater") == REHEATER_ELECTRIC
-    water = _flag(source.get("reheater_water")) or source.get("reheater") == REHEATER_WATER
+    # Checkboxes are the source of truth once they are present. A stored
+    # reheater slug must not turn a cleared checkbox back on.
+    if "reheater_electric" in source or "reheater_water" in source:
+        electric = _flag(source.get("reheater_electric"))
+        water = _flag(source.get("reheater_water"))
+    else:
+        electric = source.get("reheater") == REHEATER_ELECTRIC
+        water = source.get("reheater") == REHEATER_WATER
     if electric and water:
         # One heating surface. An explicit reheater value wins; otherwise
         # the water flag is cleared so both cannot stay on.

@@ -126,6 +126,15 @@ assert.equal(plant.version, 2);
 assert.equal(plant.options_board, false);
 assert.equal(plant.experimental, false);
 assert.equal(context.NilanPlant.normalize({ reheater_electric: true, reheater_water: true }).reheater, 'electric');
+const fittedPlant = context.NilanPlant.normalize({ preheater: true, reheater_water: true, co2: true });
+const clearedPlant = context.NilanPlant.normalize({ ...fittedPlant, preheater: false, reheater_water: false, co2: false });
+assert.equal(clearedPlant.preheater, false);
+assert.equal(clearedPlant.reheater_water, false);
+assert.equal(clearedPlant.reheater, 'none');
+assert.equal(clearedPlant.co2, false);
+const switchedPlant = context.NilanPlant.normalize({ ...fittedPlant, reheater_electric: true, reheater_water: false });
+assert.equal(switchedPlant.reheater, 'electric');
+assert.equal(switchedPlant.reheater_water, false);
 
 const artDesktop = fs.readFileSync(path.join(root, 'art/ventilation-anlaeg.svg'), 'utf8');
 const artMobile = fs.readFileSync(path.join(root, 'art/ventilation-mobil.svg'), 'utf8');
